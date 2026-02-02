@@ -11,6 +11,7 @@ import AdminLayout from "./pages/admin/AdminLayout"
 import AdminOrders from "./pages/admin/AdminOrders"
 
 
+
 function App() {
   return (
     <div className="app-shell">
@@ -25,9 +26,10 @@ function App() {
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
 
-            <Route path="/admin/*" element={<AdminLayout />} />
+            <Route path="/admin" element={<AdminLayout />}/>
             <Route path="/login" element={<Login />} />
             <Route path="/admin/*" element={<AdminRoute><AdminLayout /></AdminRoute>} />
+            <Route path="/admin/orders" element={<AdminOrders />} />
           </Routes>
         </main>
 

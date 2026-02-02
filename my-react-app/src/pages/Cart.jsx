@@ -57,6 +57,7 @@ export default function Cart() {
     setPlacingOrder(true)
     setOrderError(null)
     setOrderSuccessId(null)
+    
 
     try {
       // 1) Insert into orders
@@ -71,6 +72,8 @@ export default function Cart() {
         .select()
         .single()
 
+        console.log("ORDER INSERT RESULT:", orderData)
+        
       if (orderError) {
         console.error("Error creating order:", orderError)
         setOrderError("Failed to create order. Please try again.")

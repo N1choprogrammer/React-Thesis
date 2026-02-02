@@ -259,7 +259,8 @@ a {
 
 .admin-action-link {
   font-size: 0.8rem;
-  color: var(--brand-red);
+  color: white;
+  background-color: black;
 }
 
 .admin-action-delete {
