@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useCart } from "../context/CartContext"
 import { supabase } from "../services/supabaseClient"
 
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity, clearCart } = useCart()
+  const navigate = useNavigate()
+
 
   const [showCheckout, setShowCheckout] = useState(false)
   const [customerName, setCustomerName] = useState("")
@@ -19,15 +21,23 @@ export default function Cart() {
     [cart]
   )
 
-  const handleQtyChange = (item, newQty) => {
-    const qty = Number(newQty)
-    if (Number.isNaN(qty) || qty < 1) return
-    updateQuantity(item.id, qty)
+const handleQtyChange = (item, newQty) => {
+  let qty = Number(newQty)
+  if (Number.isNaN(qty) || qty < 1) {
+    qty = 1
   }
+
+  if (typeof item.stock === "number" && qty > item.stock) {
+    qty = item.stock
+    alert(`Maximum available stock for ${item.name} is ${item.stock}.`)
+  }
+
+  updateQuantity(item.id, qty)
+}
 
   const handleRemove = (item) => {
     removeFromCart(item.id)
-  }
+  } 
 
   const handleClear = () => {
     if (cart.length === 0) return
@@ -57,7 +67,21 @@ export default function Cart() {
     setPlacingOrder(true)
     setOrderError(null)
     setOrderSuccessId(null)
-    
+
+        // Check against local stock info before creating the order
+    const outOfStockItems = cart.filter(
+      (item) =>
+        typeof item.stock === "number" && item.quantity > item.stock
+    )
+
+    if (outOfStockItems.length > 0) {
+      const names = outOfStockItems.map((i) => `${i.name} (stock: ${i.stock}, requested: ${i.quantity})`)
+      setOrderError(
+        `Not enough stock for: ${names.join(", ")}. Please adjust the quantities.`
+      )
+      setPlacingOrder(false)
+      return
+    }
 
     try {
       // 1) Insert into orders
@@ -72,43 +96,57 @@ export default function Cart() {
         .select()
         .single()
 
-        console.log("ORDER INSERT RESULT:", orderData)
-        
       if (orderError) {
         console.error("Error creating order:", orderError)
-        setOrderError("Failed to create order. Please try again.")
+        setOrderError(orderError.message || "Failed to create order. Please try again.")
         setPlacingOrder(false)
         return
       }
 
-      // 2) Insert order_items
+      // 2) Build order_items payload from cart
       const itemsPayload = cart.map((item) => ({
         order_id: orderData.id,
-        product_id: item.productId,    // from CartContext
+        product_id: item.productId,    // 👈 must match products.id
         product_name: item.name,
         price: item.price || 0,
         quantity: item.quantity || 1,
         color: item.color || null,
       }))
 
+      console.log("ITEMS PAYLOAD FOR ORDER:", itemsPayload)
+
+      // 3) Insert into order_items (this is what fires the stock trigger)
+      // 3) Insert into order_items
       const { error: itemsError } = await supabase
         .from("order_items")
         .insert(itemsPayload)
 
       if (itemsError) {
         console.error("Error creating order items:", itemsError)
-        setOrderError("Order created but items failed. Contact the shop.")
+        setOrderError(itemsError.message || "Order created but items failed. Contact the shop.")
         setPlacingOrder(false)
         return
       }
 
-      // 3) Clear cart & show success
+      // 4) Explicitly decrease stock in products for this order
+      const { error: stockError } = await supabase.rpc("decrease_stock_for_order", {
+        order_uuid: orderData.id,
+      })
+
+      if (stockError) {
+        console.error("Error updating stock:", stockError)
+        // We won't block the order if stock update fails, but we log it
+      }
+
+      // 5) Clear cart & redirect to order confirmation page
       clearCart()
-      setOrderSuccessId(orderData.id)
       setShowCheckout(false)
       setCustomerName("")
       setCustomerPhone("")
       setCustomerEmail("")
+
+      navigate(`/order-confirmation/${orderData.id}`)
+
     } catch (err) {
       console.error("Unexpected checkout error:", err)
       setOrderError("Something went wrong. Please try again.")
@@ -294,7 +332,9 @@ function CartItem({ item, onQtyChange, onRemove }) {
         <div className="cart-item-info">
           <div className="cart-item-name-row">
             <div className="cart-item-name">{item.name}</div>
-            <div className="cart-item-price">₱{(item.price || 0).toLocaleString()}</div>
+            <div className="cart-item-price">
+              ₱{(item.price || 0).toLocaleString()}
+            </div>
           </div>
 
           <div className="cart-item-meta">

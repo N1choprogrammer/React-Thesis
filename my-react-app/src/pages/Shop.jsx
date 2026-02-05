@@ -99,10 +99,14 @@ function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuick
     ? supabase.storage.from("product-images").getPublicUrl(activeImagePath).data.publicUrl
     : null
 
-  const inStock = (product.stock ?? 0) > 0
+  // Stock logic
+  const stock = typeof product.stock === "number" ? product.stock : null
+  const inStock = stock === null ? true : stock > 0
+  const lowStock = stock !== null && stock > 0 && stock <= 3
+
   const selectedColor = getSelectedColor(product, activeImageIndex)
 
-  const handleAdd = () => {
+const handleAdd = () => {
   if (product.colors?.length && !selectedColor) {
     alert("This product is not configured correctly: no color for this image.")
     return
@@ -111,10 +115,31 @@ function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuick
     alert("Quantity must be at least 1")
     return
   }
-  addToCart(product, selectedColor, qty, activeImagePath)
+
+  let finalQty = qty
+
+  if (stock !== null && finalQty > stock) {
+    finalQty = stock
+    setQty(stock)
+    alert(`Only ${stock} unit(s) available for ${product.name}. Quantity has been adjusted.`)
+  }
+
+  if (!inStock) {
+    alert("This product is currently out of stock.")
+    return
+  }
+
+  addToCart(product, selectedColor, finalQty, activeImagePath)
   onAdded?.(product.id)
 }
 
+
+  const handleQtyChange = (e) => {
+    let value = Number(e.target.value)
+    if (Number.isNaN(value) || value < 1) value = 1
+    if (stock !== null && value > stock) value = stock
+    setQty(value)
+  }
 
   const cardClass =
     "product-card" + (isRecentlyAdded ? " product-card-added" : "")
@@ -179,11 +204,19 @@ function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuick
       </div>
 
       <div className="product-meta">
-        {inStock ? (
-          <span className="badge badge-stock">In stock: {product.stock}</span>
+        {stock === null ? (
+          <span className="badge badge-stock">Available</span>
+        ) : stock > 0 ? (
+          <>
+            <span className="badge badge-stock">In stock: {stock}</span>
+            {lowStock && (
+              <span className="badge badge-low">Low stock</span>
+            )}
+          </>
         ) : (
           <span className="badge badge-out">Out of stock</span>
         )}
+
         {product.colors && product.colors.length > 0 && (
           <span className="product-colors">
             · Selected color:{" "}
@@ -195,12 +228,18 @@ function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuick
       <div className="product-controls">
         <div className="product-controls-row">
           <input
-            className="product-qty-input"
-            type="number"
-            min="1"
-            value={qty}
-            onChange={(e) => setQty(Number(e.target.value))}
-          />
+  className="product-qty-input"
+  type="number"
+  min="1"
+  value={qty}
+  onChange={(e) => {
+    let value = Number(e.target.value)
+    if (Number.isNaN(value) || value < 1) value = 1
+    if (stock !== null && value > stock) value = stock
+    setQty(value)
+  }}
+/>
+
           <button
             className="btn btn-primary"
             onClick={handleAdd}
@@ -224,7 +263,8 @@ function QuickViewModal({ product, onClose, addToCart, onAdded }) {
     ? supabase.storage.from("product-images").getPublicUrl(activeImagePath).data.publicUrl
     : null
 
-  const inStock = (product.stock ?? 0) > 0
+  const stock = typeof product.stock === "number" ? product.stock : null
+  const inStock = stock === null ? true : stock > 0
   const selectedColor = getSelectedColor(product, activeImageIndex)
 
   const handleAddFromModal = () => {
@@ -236,11 +276,31 @@ function QuickViewModal({ product, onClose, addToCart, onAdded }) {
     alert("Quantity must be at least 1")
     return
   }
-  addToCart(product, selectedColor, qty, activeImagePath)
+
+  let finalQty = qty
+
+  if (stock !== null && finalQty > stock) {
+    finalQty = stock
+    setQty(stock)
+    alert(`Only ${stock} unit(s) available for ${product.name}. Quantity has been adjusted.`)
+  }
+
+  if (!inStock) {
+    alert("This product is currently out of stock.")
+    return
+  }
+
+  addToCart(product, selectedColor, finalQty, activeImagePath)
   onAdded?.(product.id)
-  // onClose()
+  // onClose() // keep or uncomment if you want it to close after adding
 }
 
+  const handleQtyChange = (e) => {
+    let value = Number(e.target.value)
+    if (Number.isNaN(value) || value < 1) value = 1
+    if (stock !== null && value > stock) value = stock
+    setQty(value)
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -280,8 +340,10 @@ function QuickViewModal({ product, onClose, addToCart, onAdded }) {
             </p>
 
             <div className="modal-meta-row">
-              {inStock ? (
-                <span className="badge badge-stock">In stock: {product.stock}</span>
+              {stock === null ? (
+                <span className="badge badge-stock">Available</span>
+              ) : stock > 0 ? (
+                <span className="badge badge-stock">In stock: {stock}</span>
               ) : (
                 <span className="badge badge-out">Out of stock</span>
               )}
@@ -324,15 +386,15 @@ function QuickViewModal({ product, onClose, addToCart, onAdded }) {
                   )
                 })}
                 <div className="form-field">
-                <label>Quantity</label>
-                <input
-                  className="product-qty-input"
-                  type="number"
-                  min="1"
-                  value={qty}
-                  onChange={(e) => setQty(Number(e.target.value))}
-                />
-              </div>
+                  <label>Quantity</label>
+                  <input
+                    className="product-qty-input"
+                    type="number"
+                    min="1"
+                    value={qty}
+                    onChange={handleQtyChange}
+                  />
+                </div>
               </div>
             )}
 

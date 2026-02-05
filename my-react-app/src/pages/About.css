@@ -1,0 +1,16 @@
+/* src/pages/About.css */
+.about-image-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.about-image {
+  max-width: 900px;
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  object-fit: cover;
+}

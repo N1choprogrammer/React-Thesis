@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom"
 import NavBar from "./components/NavBar"
 import Home from "./pages/Home"
 import Shop from "./pages/Shop"
@@ -8,36 +8,56 @@ import Contact from "./pages/Contact"
 import AdminRoute from "./components/AdminRoute"
 import Login from "./pages/Login"
 import AdminLayout from "./pages/admin/AdminLayout"
-import AdminOrders from "./pages/admin/AdminOrders"
+import OrderConfirmation from "./pages/OrderConfirmation"
+import ChatAssistant from "./components/ChatAssistant"
 
+function Layout() {
+  const location = useLocation()
 
+  // hide navbar on login page
+  const hideNav = location.pathname === "/login"
+
+  return (
+    <>
+      {!hideNav && <NavBar />}
+
+      <main className="main-content">
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<Home />} />
+          <Route path="/shop" element={<Shop />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+
+          {/* Auth */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Customer order confirmation */}
+          <Route path="/order-confirmation" element={<OrderConfirmation />} />
+
+          {/* Admin (protected) */}
+          <Route
+            path="/admin/*"
+            element={
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            }
+          />
+        </Routes>
+      </main>
+       {/* SpeeGO AI assistant - visible on all pages except login */}
+      {!hideNav && <ChatAssistant />}
+    </>
+  )
+}
 
 function App() {
   return (
-    <div className="app-shell">
-      <BrowserRouter>
-        <NavBar />
-
-        <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Contact />} />
-
-            <Route path="/admin" element={<AdminLayout />}/>
-            <Route path="/login" element={<Login />} />
-            <Route path="/admin/*" element={<AdminRoute><AdminLayout /></AdminRoute>} />
-            <Route path="/admin/orders" element={<AdminOrders />} />
-          </Routes>
-        </main>
-
-        <footer className="footer">
-          © {new Date().getFullYear()} SPEEGO Electric Bike Shop. All rights reserved.
-        </footer>
-      </BrowserRouter>
-    </div>
+    <BrowserRouter>
+      <Layout />
+    </BrowserRouter>
   )
 }
 

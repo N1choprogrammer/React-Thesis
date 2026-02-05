@@ -66,23 +66,45 @@ export default function AdminOrders() {
     setExpandedOrderId((current) => (current === orderId ? null : orderId))
   }
 
-  const handleStatusChange = async (orderId, newStatus) => {
-    setSavingStatusId(orderId)
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: newStatus })
-      .eq("id", orderId)
+const handleStatusChange = async (orderId, newStatus) => {
+  setSavingStatusId(orderId)
 
-    if (error) {
-      console.error("Error updating order status:", error)
-      alert("Failed to update order status.")
-    } else {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-      )
-    }
+  // Find current order so we know the previous status
+  const currentOrder = orders.find((o) => o.id === orderId)
+  const previousStatus = currentOrder?.status
+
+  // 1) Update the order status
+  const { error: statusError } = await supabase
+    .from("orders")
+    .update({ status: newStatus })
+    .eq("id", orderId)
+
+  if (statusError) {
+    console.error("Error updating order status:", statusError)
+    alert("Failed to update order status.")
     setSavingStatusId(null)
+    return
   }
+
+  // 2) If we changed TO "cancelled" (from something else), restore stock
+  if (previousStatus !== "cancelled" && newStatus === "cancelled") {
+    const { error: stockError } = await supabase.rpc("increase_stock_for_order", {
+      order_uuid: orderId,
+    })
+
+    if (stockError) {
+      console.error("Error restoring stock for cancelled order:", stockError)
+      alert("Order cancelled, but failed to restore stock. Check logs.")
+    }
+  }
+
+  // 3) Update local state so UI reflects the change
+  setOrders((prev) =>
+    prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+  )
+
+  setSavingStatusId(null)
+}
 
   const formatDateTime = (isoString) => {
     if (!isoString) return ""
@@ -154,10 +176,11 @@ export default function AdminOrders() {
                         )}
                       </td>
                       <td>
-                        <span className={`status-pill status-${order.status}`}>
-                          {order.status}
+                        <span className={`status-pill status-${order.status || "pending"}`}>
+                        {order.status || "pending"}
                         </span>
-                      </td>
+                        </td>
+
                       <td>₱{Number(order.total_amount || 0).toLocaleString()}</td>
                       <td className="admin-text-muted">{itemSummary}</td>
                       <td>

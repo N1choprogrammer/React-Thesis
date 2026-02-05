@@ -1,46 +1,53 @@
+// src/components/AdminRoute.jsx
 import { useEffect, useState } from "react"
+import { Navigate } from "react-router-dom"
 import { supabase } from "../services/supabaseClient"
-import { Navigate, Outlet } from "react-router-dom"
-
 
 export default function AdminRoute({ children }) {
   const [loading, setLoading] = useState(true)
   const [allowed, setAllowed] = useState(false)
 
   useEffect(() => {
-    const check = async () => {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const user = sessionData?.session?.user
+    const checkAdmin = async () => {
+      // 1) Check session
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-      if (!user) {
+      if (!session) {
         setAllowed(false)
         setLoading(false)
         return
       }
 
+      // 2) Check profile.role === 'admin'
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", user.id)
+        .eq("id", session.user.id)
         .single()
 
       if (error) {
-        console.error("Profile fetch error:", error)
+        console.error("Error loading profile in AdminRoute:", error)
         setAllowed(false)
-      } else {
-        setAllowed(profile?.role === "admin")
+        setLoading(false)
+        return
       }
 
+      setAllowed(profile?.role === "admin")
       setLoading(false)
     }
 
-    check()
+    checkAdmin()
   }, [])
 
-  if (loading) return <p>Loading...</p>
+  if (loading) {
+    return <div style={{ padding: "1rem" }}>Checking admin access…</div>
+  }
 
-  if (!allowed) return <Navigate to="/login" replace />
+  if (!allowed) {
+    return <Navigate to="/login" replace />
+  }
 
   return children
 }
-
