@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "../services/supabaseClient"
 import { useCart } from "../context/CartContext"
+import { useNavigate } from "react-router-dom"
 
 export default function Shop() {
   const [products, setProducts] = useState([])
@@ -127,13 +128,10 @@ function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuick
 
   const selectedColor = getSelectedColor(product, activeImageIndex)
 
-const handleAdd = () => {
-  if (product.colors?.length && !selectedColor) {
-    alert("This product is not configured correctly: no color for this image.")
-    return
-  }
-  if (qty < 1) {
-    alert("Quantity must be at least 1")
+const handleAdd = async () => {
+  // 1) Stock checks first
+  if (!inStock) {
+    alert("This product is currently out of stock.")
     return
   }
 
@@ -145,14 +143,25 @@ const handleAdd = () => {
     alert(`Only ${stock} unit(s) available for ${product.name}. Quantity has been adjusted.`)
   }
 
-  if (!inStock) {
-    alert("This product is currently out of stock.")
+  // 2) Require login
+  const { data } = await supabase.auth.getUser()
+  if (!data.user) {
+    navigate("/login", { state: { returnTo: "/shop" } })
     return
   }
 
-  addToCart(product, selectedColor, qty, activeImagePath)
+  // 3) Add to cart ONCE
+  const res = await addToCart(product, selectedColor, finalQty, activeImagePath)
+
+  if (!res.ok) {
+    alert("Failed to add to cart. Please try again.")
+    return
+  }
+
+  // 4) Toast / highlight (pass the whole product so your message works)
   onAdded?.(product, selectedColor)
 }
+
 
 
   const handleQtyChange = (e) => {
@@ -422,12 +431,16 @@ function QuickViewModal({ product, onClose, addToCart, onAdded }) {
             <div className="modal-controls">
               <div className="modal-controls-row">
                 <button
-                  className="btn btn-primary"
-                  onClick={handleAddFromModal}
-                  disabled={!inStock}
-                >
-                  {inStock ? "Add to cart" : "Unavailable"}
-                </button>
+  className="btn btn-primary"
+  onClick={(e) => {
+    e.stopPropagation()
+    handleAddFromModal()
+  }}
+  disabled={!inStock}
+>
+  {inStock ? "Add to cart" : "Unavailable"}
+</button>
+
               </div>
             </div>
 

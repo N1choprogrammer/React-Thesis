@@ -2,6 +2,8 @@ import { useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useCart } from "../context/CartContext"
 import { supabase } from "../services/supabaseClient"
+import { requireCustomerProfile } from "../utils/requireCustomerProfile"
+
 
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity, clearCart } = useCart()
@@ -12,6 +14,7 @@ export default function Cart() {
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
   const [customerEmail, setCustomerEmail] = useState("")
+  const [customerAddress, setCustomerAddress] = useState("")
   const [placingOrder, setPlacingOrder] = useState(false)
   const [orderSuccessId, setOrderSuccessId] = useState(null)
   const [orderError, setOrderError] = useState(null)
@@ -46,136 +49,140 @@ const handleQtyChange = (item, newQty) => {
     }
   }
 
-  const handleCheckoutClick = () => {
-    if (cart.length === 0) return
-    setShowCheckout(true)
-    setOrderSuccessId(null)
-    setOrderError(null)
+const handleCheckoutClick = async () => {
+  if (cart.length === 0) return
+
+  setOrderSuccessId(null)
+  setOrderError(null)
+
+  // ✅ Enforce login + profile BEFORE showing checkout
+  const gate = await requireCustomerProfile()
+
+  if (!gate.ok) {
+    navigate(gate.redirectTo, { state: { returnTo: "/cart" } })
+    return
   }
 
-  const handlePlaceOrder = async (e) => {
+  // ✅ Autofill from profile + auth email
+  setCustomerName(gate.profile?.fullName || gate.profile?.name || "")
+  setCustomerPhone(gate.profile?.phone || "")
+  setCustomerAddress(gate.profile?.address || "")
+  setCustomerEmail(gate.user?.email || "")
+
+  setShowCheckout(true)
+}
+
+const handlePlaceOrder = async (e) => {
   e.preventDefault()
-  if (cart.length === 0) {
-    alert("Your cart is empty.")
-    return
-  }
-  if (!customerName || !customerPhone) {
-    alert("Please enter your name and contact number.")
-    return
-  }
+  if (cart.length === 0) return
 
   setPlacingOrder(true)
   setOrderError(null)
   setOrderSuccessId(null)
 
-  // 1️⃣ Check against local stock info before creating the order
-  const outOfStockItems = cart.filter(
-    (item) =>
-      typeof item.stock === "number" && item.quantity > item.stock
-  )
-
-  if (outOfStockItems.length > 0) {
-    const names = outOfStockItems.map(
-      (i) => `${i.name} (stock: ${i.stock}, requested: ${i.quantity})`
-    )
-    setOrderError(
-      `Not enough stock for: ${names.join(", ")}. Please adjust the quantities.`
-    )
-    setPlacingOrder(false)
-    return
-  }
-
   try {
-    // 2️⃣ Optional: get logged-in user so we can save their auth email
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    const emailToSave = customerEmail || user?.email || null
-
-    // 3️⃣ Insert into orders (ONE clean insert)
-    const { data: orderData, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        customer_email: emailToSave,
-        total_amount: total,
-        status: "pending", // matches your enum default
-      })
-      .select()
-      .single()
-
-    if (orderError) {
-      console.error("Error creating order:", orderError)
-      setOrderError(
-        orderError.message || "Failed to create order. Please try again."
-      )
-      setPlacingOrder(false)
+    // Enforce login/profile again (security)
+    const gate = await requireCustomerProfile()
+    if (!gate.ok) {
+      navigate(gate.redirectTo, { state: { returnTo: "/cart" } })
       return
     }
 
-    // 4️⃣ Build order_items payload from cart
+    // Auto-fill (optional, just for UI)
+    setCustomerName(gate.profile.fullName || "")
+    setCustomerPhone(gate.profile.phone || "")
+    setCustomerEmail(gate.user.email || "")
+    setCustomerAddress(gate.profile.address || "") // keep if you want UI, but don't send to orders table
+
+    // Check local stock
+    const outOfStockItems = cart.filter(
+      (item) => typeof item.stock === "number" && item.quantity > item.stock
+    )
+    if (outOfStockItems.length > 0) {
+      const names = outOfStockItems.map(
+        (i) => `${i.name} (stock: ${i.stock}, requested: ${i.quantity})`
+      )
+      setOrderError(`Not enough stock for: ${names.join(", ")}.`)
+      return
+    }
+
+    const emailToSave = gate.user?.email || null
+
+    // ✅ define orderPayload (NO address)
+    const orderPayload = {
+  user_id: gate.user.id,
+  customer_name: gate.profile.fullName,
+  customer_phone: gate.profile.phone,
+  customer_email: emailToSave,
+  address: gate.profile.address,   // ✅ add this back
+  total_amount: total,
+  status: "pending",
+}
+
+    // 1) Insert order
+    const { data: orderData, error: orderErr } = await supabase
+      .from("orders")
+      .insert(orderPayload)
+      .select()
+      .single()
+
+    if (orderErr) {
+      console.log("ORDER INSERT ERROR:", orderErr)
+      setOrderError(orderErr.message || "Failed to create order.")
+      return
+    }
+
+    // 2) Insert items
     const itemsPayload = cart.map((item) => ({
       order_id: orderData.id,
-      product_id: item.productId, // must match products.id
+      product_id: item.productId ?? item.product_id, // must be the products.id
       product_name: item.name,
       price: item.price || 0,
       quantity: item.quantity || 1,
       color: item.color || null,
+      image_path: item.imagePath || null,
     }))
 
-    console.log("ITEMS PAYLOAD FOR ORDER:", itemsPayload)
-
-    // 5️⃣ Insert into order_items
-    const { error: itemsError } = await supabase
+    const { error: itemsErr } = await supabase
       .from("order_items")
       .insert(itemsPayload)
 
-    if (itemsError) {
-      console.error("Error creating order items:", itemsError)
-      setOrderError(
-        itemsError.message ||
-          "Order created but items failed. Please contact the shop."
-      )
-      setPlacingOrder(false)
+    if (itemsErr) {
+      console.log("ITEMS INSERT ERROR:", itemsErr)
+      setOrderError(itemsErr.message || "Order created but items failed.")
       return
     }
 
-    // 6️⃣ Decrease stock for this order
-    const { error: stockError } = await supabase.rpc(
-      "decrease_stock_for_order",
-      {
-        order_uuid: orderData.id,
-      }
-    )
+    // 3) Decrease stock
+const { error: stockErr } = await supabase.rpc(
+  "decrease_stock_for_order",
+  { order_uuid: orderData.id }
+)
 
-    if (stockError) {
-      console.error("Error updating stock:", stockError)
-      // We don't block the order, but we log it
-    }
+if (stockErr) {
+  console.error("Stock update error:", stockErr)
+} 
+    await supabase
+  .from("carts")
+  .delete({ status: "checked_out" })
+  .eq("user_id", gate.user.id)
+  .eq("status", "active")
 
-    // 7️⃣ Clear cart & reset form, go to confirmation
+    // 4) Done
     clearCart()
     setShowCheckout(false)
-    setCustomerName("")
-    setCustomerPhone("")
-    setCustomerEmail("")
 
-    // If your route is /order-confirmation (no ID):
-    // navigate("/order-confirmation")
-
-    // If your route uses an ID: /order-confirmation/:id
     navigate(`/order-confirmation/${orderData.id}`, {
-    state: { order: orderData },
-  })
+      state: { order: orderData },
+    })
   } catch (err) {
     console.error("Unexpected checkout error:", err)
-    setOrderError("Something went wrong. Please try again.")
+    setOrderError(err?.message || "Something went wrong.")
   } finally {
-    setPlacingOrder(false)
+    setPlacingOrder(false) // ✅ guarantees it never gets stuck
   }
 }
+
 
   return (
     <div className="cart-layout">
@@ -302,6 +309,16 @@ const handleQtyChange = (item, newQty) => {
                 placeholder="you@example.com"
               />
             </div>
+
+            <div className="checkout-field">
+  <label>Address</label>
+  <textarea
+    rows={3}
+    value={customerAddress}
+    onChange={(e) => setCustomerAddress(e.target.value)}
+    placeholder="Your address"
+  />
+</div>
 
             <button
               className="btn btn-primary cart-checkout-btn"

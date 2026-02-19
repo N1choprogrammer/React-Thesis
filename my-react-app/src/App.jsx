@@ -11,6 +11,7 @@ import AdminLayout from "./pages/admin/AdminLayout"
 import OrderConfirmation from "./pages/OrderConfirmation"
 import ChatAssistant from "./components/ChatAssistant"
 import MyOrders from "./pages/MyOrders"
+import Profile from "./pages/Profile"
 
 function Layout() {
   const location = useLocation()
@@ -31,6 +32,7 @@ function Layout() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/my-orders" element={<MyOrders />} />
+          <Route path="/profile" element={<Profile />} />
 
           {/* Auth */}
           <Route path="/login" element={<Login />} />

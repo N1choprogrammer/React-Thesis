@@ -1,11 +1,10 @@
 // src/pages/Login.jsx
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
 import { supabase } from "../services/supabaseClient"
 import logo from "../Pictures/ChatGPT-Image-SpeeGo-Logo.png"
+import { useLocation, useNavigate } from "react-router-dom"
 
-const GOOGLE_ENABLED = false  // flip when ready
-const FACEBOOK_ENABLED = false // flip when ready
+const GOOGLE_ENABLED = true  // for google login button
 
 export default function Login() {
   const [mode, setMode] = useState("login") // "login" | "signup"
@@ -20,16 +19,28 @@ export default function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const handleBack = () => {
+  const returnTo = location.state?.returnTo
+  if (returnTo) {
+    navigate(returnTo)
+  } else {
+    navigate("/")
+  }
+}
 
   const resetMessages = () => {
     setError("")
     setSuccess("")
   }
 
-  // helper: redirect based on role
-  const redirectByRole = async (userId) => {
+  // helper: redirect based on role + returnTo
+  const redirectAfterLogin = async (userId) => {
+    const returnTo = location.state?.returnTo
+
     if (!userId) {
-      navigate("/", { replace: true })
+      navigate(returnTo || "/", { replace: true })
       return
     }
 
@@ -39,17 +50,21 @@ export default function Login() {
       .eq("id", userId)
       .single()
 
+    // If profile lookup fails, fallback to returnTo/home
     if (profileError) {
       console.error("Error loading profile for redirect:", profileError)
-      navigate("/", { replace: true })
+      navigate(returnTo || "/", { replace: true })
       return
     }
 
+    // Admins go to admin (ignore returnTo)
     if (profile?.role === "admin") {
       navigate("/admin/products", { replace: true })
-    } else {
-      navigate("/", { replace: true })
+      return
     }
+
+    // Customers return to the page that required login (e.g. /cart)
+    navigate(returnTo || "/", { replace: true })
   }
 
   // auto-redirect if already logged in
@@ -60,13 +75,12 @@ export default function Login() {
       } = await supabase.auth.getSession()
 
       if (!session) return
-
-      await redirectByRole(session.user.id)
+      await redirectAfterLogin(session.user.id)
     }
 
     checkSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate])
+  }, [])
 
   const handleModeChange = (nextMode) => {
     if (nextMode === mode) return
@@ -84,31 +98,27 @@ export default function Login() {
     try {
       if (!email || !password) {
         setError("Please enter your email and password.")
-        setLoading(false)
         return
       }
 
       if (mode === "signup") {
         if (password.length < 6) {
           setError("Password must be at least 6 characters.")
-          setLoading(false)
           return
         }
         if (password !== confirmPassword) {
           setError("Passwords do not match.")
-          setLoading(false)
           return
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
         })
 
-        if (error) {
-          console.error("Sign-up error:", error)
-          setError(error.message)
-          setLoading(false)
+        if (signUpError) {
+          console.error("Sign-up error:", signUpError)
+          setError(signUpError.message)
           return
         }
 
@@ -116,22 +126,23 @@ export default function Login() {
         setMode("login")
         setPassword("")
         setConfirmPassword("")
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-
-        if (error) {
-          console.error("Login error:", error)
-          setError(error.message)
-          setLoading(false)
-          return
-        }
-
-        const userId = data?.session?.user?.id
-        await redirectByRole(userId)
+        return
       }
+
+      // login
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (loginError) {
+        console.error("Login error:", loginError)
+        setError(loginError.message)
+        return
+      }
+
+      const userId = data?.session?.user?.id
+      await redirectAfterLogin(userId)
     } catch (err) {
       console.error("Auth error:", err)
       setError("Something went wrong. Please try again.")
@@ -140,10 +151,9 @@ export default function Login() {
     }
   }
 
-  // Google login
+  // Google login (disabled for now)
   const handleGoogleLogin = async () => {
     if (!GOOGLE_ENABLED) return
-
     resetMessages()
     setLoading(true)
 
@@ -158,38 +168,11 @@ export default function Login() {
       if (error) {
         console.error("Google login error:", error)
         setError(error.message)
-        setLoading(false)
       }
     } catch (err) {
       console.error("Google login error:", err)
       setError("Something went wrong with Google sign-in.")
-      setLoading(false)
-    }
-  }
-
-  // Facebook login
-  const handleFacebookLogin = async () => {
-    if (!FACEBOOK_ENABLED) return
-
-    resetMessages()
-    setLoading(true)
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "facebook",
-        options: {
-          redirectTo: window.location.origin,
-        },
-      })
-
-      if (error) {
-        console.error("Facebook login error:", error)
-        setError(error.message)
-        setLoading(false)
-      }
-    } catch (err) {
-      console.error("Facebook login error:", err)
-      setError("Something went wrong with Facebook sign-in.")
+    } finally {
       setLoading(false)
     }
   }
@@ -226,6 +209,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className={`auth-card auth-card-${mode}`}>
+        <button type="button" className="auth-back-btn" onClick={handleBack}>← Back to website</button>
         {/* Brand header */}
         <div className="auth-brand">
           <img src={logo} alt="SPEEGO Logo" className="auth-logo-image" />
@@ -274,26 +258,7 @@ export default function Login() {
           >
             <span className="auth-provider-icon">G</span>
             <span>
-              {GOOGLE_ENABLED
-                ? "Continue with Google"
-                : "Google sign-in (coming soon)"}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            className="auth-provider-btn auth-provider-btn-facebook"
-            onClick={handleFacebookLogin}
-            disabled={!FACEBOOK_ENABLED || loading}
-            title={!FACEBOOK_ENABLED ? "Coming soon" : ""}
-          >
-            <span className="auth-provider-icon auth-provider-icon-facebook">
-              f
-            </span>
-            <span>
-              {FACEBOOK_ENABLED
-                ? "Continue with Facebook"
-                : "Facebook sign-in (coming soon)"}
+              {GOOGLE_ENABLED ? "Continue with Google" : "Google sign-in (coming soon)"}
             </span>
           </button>
         </div>
@@ -325,9 +290,7 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={
-                  mode === "login" ? "Enter your password" : "Create a password"
-                }
+                placeholder={mode === "login" ? "Enter your password" : "Create a password"}
               />
               <button
                 type="button"

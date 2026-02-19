@@ -2230,6 +2230,28 @@ a {
 }
 
 /* Subtle animation when switching Login ↔ Signup */
+.auth-card {
+  position: relative; /* important */
+}
+
+.auth-back-btn {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  background: none;
+  padding: 0.8rem 0.4rem;
+  border: none;
+  font-size: 0.85rem;
+  color: #ffffff;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.auth-back-btn:hover {
+  color: #ffffff;
+  transform: translateX(-3px);
+}
+
 
 .auth-card {
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
@@ -2341,20 +2363,22 @@ a {
 
 .toast {
   position: fixed;
-  z-index: 250;
-  bottom: 1.5rem;
-  right: 1.5rem; /* keep right side so it doesn't collide with AI assistant */
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
   background: var(--bg-card);
   border: 1px solid var(--brand-red);
   color: var(--text-main);
-  padding: 0.7rem 1rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 500;
+  z-index: 9999;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
-  animation: toast-in 0.15s ease-out, toast-out 0.2s ease-in 1.8s forwards;
+  animation: toastSlideDown 0.3s ease-forwards;
 }
 
 .toast::before {
@@ -2363,7 +2387,8 @@ a {
   color: var(--success);
 }
 
-@keyframes toast-in {
+@keyframes toastSlideDown {
+
   from {
     opacity: 0;
     transform: translateY(10px) scale(0.98);

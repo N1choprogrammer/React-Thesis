@@ -1,29 +1,36 @@
-import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useCart } from "../context/CartContext"
 import { supabase } from "../services/supabaseClient"
+import { useEffect, useState } from "react"
 import logo from "../Pictures/ChatGPT-Image-SpeeGo-Logo.png"
 
 export default function NavBar() {
   const { cart } = useCart()
-  const [bump, setBump] = useState(false)
+  const navigate = useNavigate()
+  const [session, setSession] = useState(null)
+
+  useEffect(() => {
+    // initial session
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+    })
+
+    // listen for changes
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession)
+    })
+
+    return () => sub.subscription.unsubscribe()
+  }, [])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    window.location.href = "/login"
+    navigate("/login")
   }
 
-  // 🔔 Bump animation when cart length changes
-  useEffect(() => {
-    if (cart.length === 0) return
-
-    setBump(true)
-    const timer = setTimeout(() => setBump(false), 300)
-
-    return () => clearTimeout(timer)
-  }, [cart.length])
-
-  const cartClassName = "nav-cart" + (bump ? " nav-cart-bump" : "")
+  const handleLogin = () => {
+    navigate("/login")
+  }
 
   return (
     <header className="navbar">
@@ -37,24 +44,27 @@ export default function NavBar() {
           <Link to="/shop">Shop</Link>
           <Link to="/about">About</Link>
           <Link to="/contact">Contact</Link>
-
-          {/* My Orders styled separately in CSS */}
-          <Link to="/my-orders" className="nav-link-myorders">
-            My Orders
-          </Link>
+          {session && (
+            <>
+            <Link to="/my-orders">My Orders</Link>
+            <Link to="/profile">Profile</Link>
+            </>
+          )}
         </nav>
 
-        <Link to="/cart" className={cartClassName}>
+        <Link to="/cart" className="nav-cart">
           Cart <span>{cart.length}</span>
         </Link>
 
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
+        {!session ? (
+          <button type="button" className="btn btn-primary" onClick={handleLogin}>
+            Sign in / Login
+          </button>
+        ) : (
+          <button type="button" className="btn btn-ghost" onClick={handleLogout}>
+            Logout
+          </button>
+        )}
       </div>
     </header>
   )
