@@ -12,15 +12,23 @@ import OrderConfirmation from "./pages/OrderConfirmation"
 import ChatAssistant from "./components/ChatAssistant"
 import MyOrders from "./pages/MyOrders"
 import Profile from "./pages/Profile"
+import { useTheme } from "./context/ThemeContext"
 
 function Layout() {
   const location = useLocation()
+  const { isDark } = useTheme()
 
-  // hide navbar on login page
-  const hideNav = location.pathname === "/login"
+  // hide customer navbar/chat on login and admin routes
+  const hideNav = location.pathname === "/login" || location.pathname.startsWith("/admin")
 
   return (
-    <>
+    <div
+      className={
+        isDark
+          ? "min-h-screen transition-colors duration-300"
+          : "min-h-screen bg-gradient-to-b from-zinc-100 via-white to-zinc-100 text-zinc-900 transition-colors duration-300"
+      }
+    >
       {!hideNav && <NavBar />}
 
       <main className="main-content">
@@ -54,7 +62,7 @@ function Layout() {
       </main>
        {/* SpeeGO AI assistant - visible on all pages except login */}
       {!hideNav && <ChatAssistant />}
-    </>
+    </div>
   )
 }
 

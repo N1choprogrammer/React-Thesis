@@ -50,12 +50,16 @@ export function CartProvider({ children }) {
       const activeCartId = await getOrCreateActiveCartId(user.id)
       setCartId(activeCartId)
 
-      const { data, error } = await supabase
+      let data = null
+      let error = null
+
+      const primary = await supabase
         .from("cart_items")
         .select(`
           id,
           cart_id,
           product_id,
+          variant_id,
           quantity,
           color,
           image_path,
@@ -65,18 +69,92 @@ export function CartProvider({ children }) {
         .eq("cart_id", activeCartId)
         .order("created_at", { ascending: false })
 
+      data = primary.data
+      error = primary.error
+
+      if (error && String(error.message || "").toLowerCase().includes("variant_id")) {
+        const fallback = await supabase
+          .from("cart_items")
+          .select(`
+            id,
+            cart_id,
+            product_id,
+            quantity,
+            color,
+            image_path,
+            price_snapshot,
+            products:products ( name, price, stock )
+          `)
+          .eq("cart_id", activeCartId)
+          .order("created_at", { ascending: false })
+        data = fallback.data
+        error = fallback.error
+      }
+
       if (error) throw error
 
-      const mapped = (data || []).map((row) => ({
-        id: row.id, // cart_item id
-        productId: row.product_id,
-        name: row.products?.name,
-        price: row.price_snapshot ?? row.products?.price ?? 0,
-        stock: row.products?.stock,
-        quantity: row.quantity,
-        color: row.color ?? null,
-        imagePath: row.image_path ?? null,
-      }))
+      const rows = data || []
+      const variantIds = [...new Set(rows.map((row) => row.variant_id).filter(Boolean))]
+      const productIds = [...new Set(rows.map((row) => row.product_id).filter(Boolean))]
+      let variantMap = new Map()
+      let variantByProductColor = new Map()
+
+      if (variantIds.length > 0 || productIds.length > 0) {
+        const { data: variantsData, error: variantsError } = await supabase
+          .from("product_color_stock")
+          .select("id, product_id, color, stock, image_path")
+          .in(variantIds.length > 0 ? "id" : "product_id", variantIds.length > 0 ? variantIds : productIds)
+
+        if (variantsError) {
+          console.error("Load cart variants error:", variantsError)
+        } else {
+          const variants = variantsData || []
+
+          // If we queried by variant ids but also need legacy color matching, fetch all variants for product ids too.
+          let allVariants = variants
+          if (productIds.length > 0 && variantIds.length > 0) {
+            const { data: productVariantsData, error: productVariantsError } = await supabase
+              .from("product_color_stock")
+              .select("id, product_id, color, stock, image_path")
+              .in("product_id", productIds)
+
+            if (productVariantsError) {
+              console.error("Load product variants for cart fallback error:", productVariantsError)
+            } else {
+              const merged = [...variants, ...(productVariantsData || [])]
+              const dedup = new Map(merged.map((v) => [v.id, v]))
+              allVariants = Array.from(dedup.values())
+            }
+          }
+
+          variantMap = new Map(allVariants.map((v) => [v.id, v]))
+          variantByProductColor = new Map(
+            allVariants
+              .filter((v) => v.product_id && v.color)
+              .map((v) => [`${v.product_id}::${String(v.color).trim().toLowerCase()}`, v])
+          )
+        }
+      }
+
+      const mapped = rows.map((row) => {
+        const variant =
+          (row.variant_id ? variantMap.get(row.variant_id) : null) ||
+          (row.product_id && row.color
+            ? variantByProductColor.get(`${row.product_id}::${String(row.color).trim().toLowerCase()}`)
+            : null)
+
+        return {
+          id: row.id, // cart_item id
+          productId: row.product_id,
+          variantId: row.variant_id ?? null,
+          name: row.products?.name,
+          price: row.price_snapshot ?? row.products?.price ?? 0,
+          stock: typeof variant?.stock === "number" ? variant.stock : row.products?.stock,
+          quantity: row.quantity,
+          color: variant?.color ?? row.color ?? null,
+          imagePath: variant?.image_path ?? row.image_path ?? null,
+        }
+      })
 
       setCart(mapped)
     } catch (e) {
@@ -98,7 +176,7 @@ export function CartProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const addToCart = async (product, color, qty = 1, imagePath = null) => {
+  const addToCart = async (product, color, qty = 1, imagePath = null, variantId = null) => {
     const user = await getUserOrNull()
     if (!user) return { ok: false, reason: "not_logged_in" }
 
@@ -109,14 +187,64 @@ export function CartProvider({ children }) {
     const safeQty = Math.max(1, Number(qty) || 1)
 
     // check if this variant already exists
-    const { data: existing, error: findErr } = await supabase
-      .from("cart_items")
-      .select("id, quantity")
-      .eq("cart_id", activeCartId)
-      .eq("product_id", productId)
-      .eq("color", color ?? null)
-      .eq("image_path", imagePath ?? null)
-      .maybeSingle()
+    let existing = null
+    let findErr = null
+    let existingWasLegacyMatch = false
+
+    if (variantId) {
+      const byVariant = await supabase
+        .from("cart_items")
+        .select("id, quantity")
+        .eq("cart_id", activeCartId)
+        .eq("product_id", productId)
+        .eq("variant_id", variantId)
+        .maybeSingle()
+
+      existing = byVariant.data
+      findErr = byVariant.error
+
+      if (findErr && String(findErr.message || "").toLowerCase().includes("variant_id")) {
+        const legacyFallback = await supabase
+          .from("cart_items")
+          .select("id, quantity")
+          .eq("cart_id", activeCartId)
+          .eq("product_id", productId)
+          .eq("color", color ?? null)
+          .eq("image_path", imagePath ?? null)
+          .maybeSingle()
+
+        existing = legacyFallback.data
+        findErr = legacyFallback.error
+        existingWasLegacyMatch = !!legacyFallback.data
+      } else if (!findErr && !existing) {
+        // Migration compatibility: merge old rows that were saved before variant_id existed.
+        const legacyMatch = await supabase
+          .from("cart_items")
+          .select("id, quantity")
+          .eq("cart_id", activeCartId)
+          .eq("product_id", productId)
+          .eq("color", color ?? null)
+          .eq("image_path", imagePath ?? null)
+          .maybeSingle()
+
+        if (!legacyMatch.error && legacyMatch.data) {
+          existing = legacyMatch.data
+          existingWasLegacyMatch = true
+        }
+      }
+    } else {
+      const legacy = await supabase
+        .from("cart_items")
+        .select("id, quantity")
+        .eq("cart_id", activeCartId)
+        .eq("product_id", productId)
+        .eq("color", color ?? null)
+        .eq("image_path", imagePath ?? null)
+        .maybeSingle()
+
+      existing = legacy.data
+      findErr = legacy.error
+    }
 
     if (findErr) {
       console.error("Find cart item error:", findErr)
@@ -125,24 +253,71 @@ export function CartProvider({ children }) {
 
     if (existing?.id) {
       const newQty = (existing.quantity || 1) + safeQty
-      const { error: updErr } = await supabase
-        .from("cart_items")
-        .update({ quantity: newQty })
-        .eq("id", existing.id)
+      let updErr = null
+
+      if (variantId && existingWasLegacyMatch) {
+        const updateRes = await supabase
+          .from("cart_items")
+          .update({ quantity: newQty, variant_id: variantId })
+          .eq("id", existing.id)
+
+        updErr = updateRes.error
+
+        if (updErr && String(updErr.message || "").toLowerCase().includes("variant_id")) {
+          const fallbackUpdate = await supabase
+            .from("cart_items")
+            .update({ quantity: newQty })
+            .eq("id", existing.id)
+          updErr = fallbackUpdate.error
+        }
+      } else {
+        const updateRes = await supabase
+          .from("cart_items")
+          .update({ quantity: newQty })
+          .eq("id", existing.id)
+        updErr = updateRes.error
+      }
 
       if (updErr) {
         console.error("Update cart item error:", updErr)
         return { ok: false, reason: "db_error" }
       }
     } else {
-      const { error: insErr } = await supabase.from("cart_items").insert({
-        cart_id: activeCartId,
-        product_id: productId,
-        quantity: safeQty,
-        color: color ?? null,
-        image_path: imagePath ?? null,
-        price_snapshot: product.price ?? 0,
-      })
+      let insErr = null
+      if (variantId) {
+        const insertRes = await supabase.from("cart_items").insert({
+          cart_id: activeCartId,
+          product_id: productId,
+          variant_id: variantId,
+          quantity: safeQty,
+          color: color ?? null,
+          image_path: imagePath ?? null,
+          price_snapshot: product.price ?? 0,
+        })
+        insErr = insertRes.error
+
+        if (insErr && String(insErr.message || "").toLowerCase().includes("variant_id")) {
+          const fallbackInsert = await supabase.from("cart_items").insert({
+            cart_id: activeCartId,
+            product_id: productId,
+            quantity: safeQty,
+            color: color ?? null,
+            image_path: imagePath ?? null,
+            price_snapshot: product.price ?? 0,
+          })
+          insErr = fallbackInsert.error
+        }
+      } else {
+        const insertRes = await supabase.from("cart_items").insert({
+          cart_id: activeCartId,
+          product_id: productId,
+          quantity: safeQty,
+          color: color ?? null,
+          image_path: imagePath ?? null,
+          price_snapshot: product.price ?? 0,
+        })
+        insErr = insertRes.error
+      }
 
       if (insErr) {
         console.error("Insert cart item error:", insErr)

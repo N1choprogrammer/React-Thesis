@@ -1,0 +1,625 @@
+﻿{
+    "intents": [
+        {
+            "tag": "greetings",
+            "patterns": [
+                "hello",
+                "hi",
+                "hey",
+                "good day",
+                "how are you?",
+                "what's up?"
+            ],
+            "responses": [
+                "Hi! Welcome to our online e-bike store.",
+                "Hello! Looking for a new ride?",
+                "Hi there! How can I assist you today?",
+                "Name anything you need help with!",
+                "Hello! How can I help you with your e-bike needs?",
+                "Hey! Need help with e-bikes? I'm here for you.",
+                "Hi! What can I do for you today?",
+                "Hello! How can I assist you with selecting the best e-bike for you?",
+                "Hi! What can I help you with today?"
+            ]
+        },
+        {
+            "tag": "goodbye",
+            "patterns": [
+                "bye",
+                "see you",
+                "goodbye",
+                "catch you later",
+                "thanks, bye",
+                "peace out",
+                "i'm done",
+                "talk to you later",
+                "gotta go"
+            ],
+            "responses": [
+                "Take care! Happy riding!",
+                "Goodbye! Let us know if you need more help.",
+                "Glad to help!",
+                "See you next time! Enjoy your e-bike!",
+                "Thanks for visiting! Ride safe!",
+                "Goodbye! If you have more questions, just ask.",
+                "Thank you for stopping by! Have a great day!",
+                "Thank you for visiting our website! If you have any more questions, feel free to ask.",
+                "Thank you for your time! If you need any more assistance, just let us know.",
+                "I hope that you are satisfied with your experience!"
+            ]
+        },
+        {
+            "tag": "thanks",
+            "patterns": [
+                "thanks",
+                "thank you",
+                "appreciate it",
+                "salamat",
+                "maraming salamat",
+                "ty",
+                "salamat po",
+                "thank you so much"
+            ],
+            "responses": ["You're very welcome!", "Glad to help!", "Anytime!, happy to assist!", "No problem, I'm here to help you!", "You're welcome! If you have more questions, just ask.", "Anytime! If you need more help, just let me know.", "You're welcome! If you have any more questions, feel free to ask.", "No problem! I'm here to help with anything you need.", "You're very welcome! If you have any more questions, just let me know."]
+        },
+        {
+            "tag": "bike_availability",
+            "patterns": [
+                "do you have bikes?",
+                "what bikes are in stock?",
+                "show me available bikes",
+                "any bikes available now?",
+                "is there stock right now?",
+                "available bikes",
+                "in stock",
+                "stock",
+                "bike?",
+                "bikes",
+                "do you sell e bikes?",
+                "electric bike",
+                "available ebike",
+                "bike po?",
+                "may bike ba kayo?",
+                "may e-bike ba kayo?",
+                "anong bike meron kayo?",
+                "anong e-bike meron kayo?"
+            ],
+            "responses": [
+                "Yes, we currently have several models in stock. Would you like mountain, city, or road e-bikes?",
+                "Yes, we have a variety of e-bikes available. What type are you looking",
+                "Here are the categories of e-bikes we have: city bikes, mountain bikes, road bikes, and urban bikes. Which one interests you?",
+                "Yes, we have a range of bikes and e-bikes available. Are you looking for a specific type?",
+                "Yes, we have a selection of bikes and e-bikes available. Are you looking for a specific type or model?"
+            ]
+        },
+        {
+            "tag": "bike_price",
+            "patterns": [
+                "how much is an e-bike?",
+                "what's the price of your bikes?",
+                "bike prices please",
+                "cost of e-bike",
+                "what is the price range?",
+                "bike cost?",
+                "how much are your models?",
+                "how much will I spend?",
+                "magkano ang nyo e-bike?",
+                "magkano ang bike?",
+                "anong presyo ng bike nyo?",
+                "anong presyo ng bike nyo?"
+            ],
+            "responses": [
+                "Our e-bikes range from ₱15,000 to ₱90,000 depending on the model and features. Want help choosing?",
+                "Prices start at ₱15,000 for basic models and go up to ₱90,000 for high-end e-bikes. What features are you looking for?",
+                "E-bike prices range from ₱15,000 to ₱90,000. We have options for every budget! Would you like to see specific models?",
+                "Our e-bikes range from ₱15,000 to ₱90,000. It depends on the model and features. Would you like to see some options?"
+            ]
+        },
+        {
+            "tag": "payment_options",
+            "patterns": [
+                "do you have installment?",
+                "how can I pay?",
+                "available payment options?",
+                "Gcash?",
+                "can I pay in installment?",
+                "do you accept GCash?",
+                "payment methods?",
+                "is credit card accepted?",
+                "pwede ba hulugan?",
+                "paano ako magbabayad?",
+                "anong payment options?",
+                "anong payment methods?",
+                "anong payment options nyo?",
+                "pwede GCash?",
+                "pwede ba ang credit card?",
+                "paano magbayad?",
+                "paano magbayad ng bike?"
+            ],
+            "responses": [
+                "We accept GCash, bank transfer, and credit card. Installment options are available via Home Credit or partner banks.",
+                "Yes, we offer installment plans through Home Credit and accept GCash, bank transfer, and credit card payments.",
+                "You can pay via GCash, bank transfer, or credit card. We also offer installment plans through Home Credit."
+            ]
+        },
+        {
+            "tag": "delivery_info",
+            "patterns": [
+                "do you deliver?",
+                "delivery options",
+                "can you ship to my place?",
+                "shipping info",
+                "delivery time?",
+                "nagdedeliver ba kayo?",
+                "may delivery ba kayo?",
+                "pwede ipadeliver samin?"
+            ],
+            "responses": [
+                "We deliver around Talavera, Baloc, Licab, Pinagpanaan! It takes around 2–3 days to be delivered.",
+                "Yes, we deliver to Talavera, Baloc, Licab, Pinagpanaan! Delivery takes about 2–3 days.",
+                "Yes, we offer delivery to Talavera, Baloc, Licab, Pinagpanaan! It usually takes 2–3 days for delivery.",
+                "Yes, we deliver to Talavera, Baloc, Licab, Pinagpanaan! Delivery time is usually 2–3 days."
+            ]
+        },
+        {
+            "tag": "warranty",
+            "patterns": [
+                "do bikes come with warranty?",
+                "is there warranty?",
+                "warranty info please",
+                "may warranty ba?",
+                "how long is the warranty?",
+                "bike warranty",
+                "warranty policy",
+                "gaano katagal ang warranty?",
+                "may warranty ba ang bike?",
+                "anong warranty ng bike?",
+                "anong warranty ng e-bike?",
+                "warranty po",
+                "warranty ng bike",
+                "warranty ng e-bike",
+                "merong warranty?",
+                "meron bang warranty ang bike?"
+            ],
+            "responses": [
+                "Yes! All our e-bikes come with 1-year warranty on motor and battery.",
+                "Yes friend, our e-bikes come with a 1-year warranty on the motor and battery.",
+                "Yes we do, all our e-bikes come with a 1-year warranty on the motor and battery. We also offer extended warranty options.",
+                "Yes, we provide a 1-year warranty on the motor and battery for all our e-bikes. Extended warranty options are also available."
+            ]
+        },
+        {
+            "tag": "support",
+            "patterns": [
+                "how do I get support?",
+                "bike not working",
+                "need repair",
+                "service center info",
+                "where can I get help?",
+                "support please",
+                "my bike has an issue",
+                "broken bike",
+                "paano ipaayos?",
+                "kanino pwedeng magpaayos?",
+                "saan pwedeng magpaayos ng bike?",
+                "saan pwedeng magpaayos ng e-bike?",
+                "paano magpaayos ng bike?",
+                "paano magpaayos ng bike ko?",
+                "may problema ang bike ko",
+                "may sira ang bike ko"
+            ],
+            "responses": [
+                "You can contact our support at aaronclauren@gmail.com or visit one of our official store.",
+                "For support, you can email us at aaronclauren@gmail.com or visit our official store.",
+                "For support, you can email us at aaronclauren@gmail.com or visit our official store. We can help with repairs and maintenance.",
+                "You can reach our support team at aaronclauren@gmail.com or visit our official store for assistance with repairs and maintenance."
+            ]
+        },
+        {
+            "tag": "battery_info",
+            "patterns": [
+                "how long does the battery last?",
+                "battery life?",
+                "charging time?",
+                "range of the bike?",
+                "how far can I go on one charge?",
+                "battery capacity?",
+                "battery specs",
+                "charging hours",
+                "battery duration",
+                "gaano katagal ang buhay ng battery?",
+                "ilang oras ang charging?",
+                "ilang kilometro ang kaya ng battery?",
+                "gaano katagal magcharge?",
+                "ano ang charging time ng battery?"
+
+            ],
+            "responses": [
+                "Battery lasts up to 60km per charge depending on terrain and speed. Charging takes 6-8 hours.",
+                "Our e-bike batteries last up to 60km per charge, depending on terrain and speed. Charging takes about 6-8 hours.",
+                "The battery lasts up to 60km per charge, depending on terrain and speed. Charging time is around 6-8 hours."
+            ]
+        },
+        {
+            "tag": "features",
+            "patterns": [
+                "what are the features?",
+                "does it have gears?",
+                "how fast is it?",
+                "bike specs?",
+                "what specs?",
+                "bike speed?",
+                "what comes with the bike?",
+                "gaano kabilis ang e-bike?",
+                "anong features ng e-bike?",
+                "ano mga spces?",
+                "ano mga freebies? kapag bumili ako?"
+            ],
+            "responses": [
+                "Our e-bikes can go up to 40km/h, reverse camera, and come with LED displays and disk brakes.",
+                "Our e-bikes have a top speed of 40km/h, reverse camera, LED display, and disk brakes. They also come with a charger and basic tools.",
+                "Our e-bikes can reach speeds of up to 40km/h, have a reverse camera, LED display, and disk brakes. They also come with a charger and basic tools."
+            ]
+        },
+        {
+            "tag": "shop_location",
+            "patterns": [
+                "where is your shop?",
+                "do you have a physical store?",
+                "can I visit your store?",
+                "store address?",
+                "saan ang shop nyo?",
+                "pwede bang bisitahin ang shop?",
+                "shop location please"
+            ],
+            "responses": [
+                "Yes, you can visit us at Maharlika Highway brgy. Andal Aliño Talavera Nueva Ecija, Talavera, Philippines. We're open from 9AM to 5PM daily.",
+                "Yes, we have a physical store located at Maharlika Highway brgy. Andal Aliño Talavera Nueva Ecija, Talavera, Philippines. We're open from 9AM to 5PM daily.",
+                "Yes, you can visit our store at Maharlika Highway brgy. Andal Aliño Talavera Nueva Ecija, Talavera, Philippines. We're open from 9AM to 5PM daily."
+            ]
+        },
+        {
+            "tag": "noanswer",
+            "patterns": [
+                "???",
+                "i don't get it",
+                "what are you saying?",
+                "can you repeat?",
+                "say that again",
+                "i didn't understand",
+                "what?",
+                "can you explain that?",
+                "huh?",
+                "ano yon?",
+                "ha?",
+                "hindi ko gets",
+                "hindi ko maintindihan",
+                "anong sinabi mo?"
+            ],
+            "responses": [
+                "I'm sorry, I didn't understand that. Can you try asking about our e-bikes, delivery, or pricing?",
+                "I didn't catch that. Could you please ask about our e-bikes, delivery options, or pricing?",
+                "I'm not sure what you mean. Could you please ask about our e-bikes, delivery, or pricing?",
+                "I didn't understand that. Could you please ask about our e-bikes, delivery options, or pricing?"
+            ]
+        },
+        {
+            "tag":"electric_bike",
+            "patterns": [
+                "do you have electric bikes?",
+                "I want an electric e-bike",
+                "show me electric bikes",
+                "need something eco-friendly",
+                "any electric bike models?",
+                "electric bike options",
+                "eco-friendly bike",
+                "gusto ko ng e-bike"
+            ],
+            "responses": [
+                "Yes! Our electric e-bikes start at ₱39,000. They feature lightweight frames, 36V battery (up to 50km range), and built-in lights. Perfect for eco-friendly commuting! Installment is available through Home Credit or credit card.",
+                "Absolutely! Our electric e-bikes start at ₱39,000. They are designed for eco-friendly commuting with features like lightweight frames, 36V battery (up to 50km range), and built-in lights. Installment options are available via Home Credit or credit card.",
+                "Yes, we have electric e-bikes starting at ₱39,000. They are perfect for eco-friendly commuting with features like lightweight frames, 36V battery (up to 50km range), and built-in lights. Installment options are available."
+            ]
+        },
+        {
+            "tag": "bike_parts",
+            "patterns": [
+                "do you sell bike parts?",
+                "I need bike accessories",
+                "bike spare parts",
+                "do you have helmets?",
+                "looking for bike gear",
+                "bike maintenance items",
+                "spare parts for e-bike"
+            ],
+            "responses": [
+                "Yes, we sell bike parts and accessories including helmets, locks, lights, and more. You can order online or visit our store.",
+                "We have a range of bike accessories like helmets, locks, and lights. You can order them online or visit our shop.",
+                "Yes, we offer bike parts and accessories such as helmets, locks, lights, and more. You can order online or visit our store."
+            ]
+        },
+        {
+            "tag": "bike_faq",
+            "patterns": [
+                "frequently asked questions",
+                "common questions about bikes",
+                "bike FAQs",
+                "help with bike questions"
+            ],
+            "responses": [
+                "You can find answers to common questions on our FAQ page or ask me directly!",
+                "Check our FAQ page for common questions about bikes, or feel free to ask me anything!",
+                "You can find answers to common questions on our FAQ page, or feel free to ask me directly!"
+            ]
+        },
+        {
+            "tag": "bike_safety",
+            "patterns": [
+                "bike safety tips",
+                "how to ride safely",
+                "safety gear for biking",
+                "bike safety rules"
+            ],
+            "responses": [
+                "Always wear a helmet, use lights at night, and follow traffic rules. Stay safe while riding!",
+                "For safety, always wear a helmet, use lights at night, and follow traffic rules. Stay safe while riding!"
+            ]
+        },
+        {
+            "tag": "bike_insurance",
+            "patterns": [
+                "do you offer bike insurance?",
+                "bike insurance options",
+                "how to insure my bike",
+                "insurance for e-bikes"
+            ],
+            "responses": [
+                "We currently do not offer bike insurance, but we can recommend some providers.",
+                "We don't provide bike insurance, but we can suggest some providers that offer coverage for e-bikes.",
+                "We currently do not offer bike insurance, but we can recommend some providers that specialize in e-bike coverage."
+            ]
+        },
+        {
+            "tag":"bike_electric_price",
+            "patterns": [
+                "electric bike price",
+                "cost of electric e-bike",
+                "how much is an electric bike?",
+                "price of electric bike"
+            ],
+            "responses": [
+                "Electric e-bikes start at ₱39,000. They are perfect for eco-friendly commuting and short trips.",
+                "Electric e-bikes start at ₱39,000. They feature lightweight frames, 36V battery (up to 50km range), and built-in lights. Perfect for eco-friendly commuting! Installment is available through Home Credit or credit card.",
+                "Electric e-bikes start at ₱39,000. They are designed for eco-friendly commuting with features like lightweight frames, 36V battery (up to 50km range), and built-in lights. Installment options are available."
+            ]
+        },
+        {
+            "tag": "bike_electric_list",
+            "patterns": [
+                "electric bike list",
+                "e-bike list",
+                "electric bicycle list",
+                "ebikes available",
+                "electric bike options",
+                "electric bike models",
+                "available electric bikes"
+            ],
+            "responses": [
+                "We sell the current electric bikes: EcoSada V2, ECO SPORTS V2, SPEEGO Q5, and SpeeGo 4 Wheel Solar. They are perfect for eco-friendly commuting and leisure riding.",
+                "Available electric bikes include EcoSada V2, ECO SPORTS V2, SPEEGO Q5, and SpeeGo 4 Wheel Solar. They are designed for commuting and leisure riding without destroying our beloved earth.",
+                "We have several electric bikes available including EcoSada V2, ECO SPORTS V2, SPEEGO Q5, and SpeeGo 4 Wheel Solar. They are perfect for eco-friendly adventure around the city."
+            ]
+        },
+        {
+            "tag": "EcoSada_V2_price",
+            "patterns": [
+                "EcoSada V2 price",
+                "EcoSada V2 cost",
+                "price of EcoSada V2"
+            ],
+            "responses": [
+                "The EcoSada V2 is priced at ₱39,000. It features a powerful motor and long-lasting battery for extended rides.",
+                "The EcoSada V2 is currently priced at ₱39,000. It features a 48V 500W motor, 26\" wheels, and a 60km range. It is designed for eco-friendly commuting and leisure riding."
+            ]
+        },
+        {
+            "tag": "ECO_SPORTS_V2_price",
+            "patterns": [
+                "ECO SPORTS V2 price",
+                "ECO SPORTS V2 cost",
+                "price of ECO SPORTS V2"
+            ],
+            "responses": [
+                "The ECO SPORTS V2 is priced at ₱46,000. It offers a sleek design and advanced features for urban commuting.",
+                "ECO SPORTS V2 is perfect for urban commuting with advanced features. It is listed at ₱46,000. It features a 48V 500W motor, 26\" wheels, and a 70km range."
+            ]
+        },
+        {
+            "tag": "SPEEGO_Q5_price",
+            "patterns": [
+                "SPEEGO Q5 price",
+                "SPEEGO Q5 cost",
+                "price of SPEEGO Q5"
+            ],
+            "responses": [
+                "The SPEEGO Q5 is priced at ₱52,000. It provides excellent performance and comfort for long-distance rides.",
+                "The current market price for SPEEGO Q5 is ₱52,000. It features a 48V 750W motor, 27.5\" wheels, and a 80km range. It provides excellent performance for long-distance rides."
+            ]
+        },
+        {
+            "tag": "SpeeGo_4_Wheel_Solar_price",
+            "patterns": [
+                "SpeeGo 4 Wheel Solar price",
+                "SpeeGo 4 Wheel Solar cost",
+                "price of SpeeGo 4 Wheel Solar"
+            ],
+            "responses": [
+                "The SpeeGo 4 Wheel Solar is priced at ₱68,000. It features solar charging capabilities for eco-friendly commuting.",
+                "The SpeeGo 4 Wheel Solar is currently listed at ₱68,000. It features a solar charging system, 48V 1000W motor, and a 100km range. It is designed for eco-friendly commuting and provides excellent performance."
+            ]
+        },
+        {
+            "tag": "ECO_TRIP_V2_price",
+            "patterns": [
+                "ECO TRIP V2 price",
+                "ECO TRIP V2 cost",
+                "price of ECO TRIP V2"
+            ],
+            "responses": [
+                "The ECO TRIP V2 is priced at ₱65,000. It offers a comfortable ride with advanced features for leisure biking.",
+                "The ECO TRIP V2 offers a comfortable ride with advanced features for leisure biking. It is priced at ₱65,000. It features a 48V 500W motor, 26\" wheels, and a 60km range. "
+            ]
+        },
+        {
+            "tag": "EcoSada_V2_specs",
+            "patterns": [   
+                "EcoSada V2 specs",
+                "EcoSada V2 features",
+                "EcoSada V2 specifications"
+            ],
+            "responses": [
+                "The EcoSada V2 features a 48V 500W motor, 26\" wheels, and a 60km range. It is designed for eco-friendly commuting and leisure riding.",
+                "Specifications of EcoSada V2 include a 48V 500W motor, 26\" wheels, and a 60km range. It is designed for eco-friendly commuting and leisure riding."
+            ]
+        },
+        {
+            "tag": "ECO_SPORTS_V2_specs",
+            "patterns": [
+                "ECO SPORTS V2 specs",
+                "ECO SPORTS V2 features",
+                "ECO SPORTS V2 specifications"
+            ],
+            "responses": [
+                "The ECO SPORTS V2 features a 48V 500W motor, 26\" wheels, and a 70km range. It is perfect for urban commuting with advanced features.",
+                "ECO SPORTS V2 specs include a 48V 500W motor, 26\" wheels, and a 70km range. It is designed for urban commuting with advanced features."
+            ]
+        },
+        {
+            "tag": "SPEEGO_Q5_specs",
+            "patterns": [
+                "SPEEGO Q5 specs",
+                "SPEEGO Q5 features",
+                "SPEEGO Q5 specifications"
+            ],
+            "responses": [
+                "The SPEEGO Q5 features a 48V 750W motor, 27.5\" wheels, and a 80km range. It provides excellent performance for long-distance rides.",
+                "Specifications of SPEEGO Q5 include a 48V 750W motor, 27.5\" wheels, and a 80km range. It is designed for long-distance rides and provides excellent performance."
+            ]
+        },
+        {
+            "tag": "SpeeGo_4_Wheel_Solar_specs",
+            "patterns": [
+                "SpeeGo 4 Wheel Solar specs",
+                "SpeeGo 4 Wheel Solar features",
+                "SpeeGo 4 Wheel Solar specifications"
+            ],
+            "responses": [
+                "The SpeeGo 4 Wheel Solar features a solar charging system, 48V 1000W motor, and a 100km range. It is designed for eco-friendly commuting.",
+                "SpeeGo 4 Wheel Solar is designed for eco-friendly commuting and provides excellent performance. The specifications include a solar charging system, 48V 1000W motor, and a 100km range. It "
+            ]
+        },
+        {
+            "tag": "ECO_TRIP_V2_specs",
+            "patterns": [
+                "ECO TRIP V2 specs",
+                "ECO TRIP V2 features",
+                "ECO TRIP V2 specifications"
+            ],
+            "responses": [
+                "The ECO TRIP V2 features a 48V 500W motor, 26\" wheels, and a 60km range. It offers a comfortable ride with advanced features for leisure biking.",
+                "Specifications of ECO TRIP V2 include a 48V 500W motor, 26\" wheels, and a 60km range. It is designed for leisure biking and provides a comfortable ride."
+            ]
+        },
+ 
+        {
+            "tag":"EcoSada_V2_colors",
+            "patterns": [
+                "EcoSada V2 colors",
+                "EcoSada V2 color options",
+                "EcoSada V2 available colors"
+            ],
+            "responses": [
+                "The EcoSada V2 is available in white, red and blue. It features a powerful motor and long-lasting battery for extended rides.",
+                "EcoSada V2 comes in two colors: white, red and blue. It is designed for eco-friendly commuting and leisure riding."
+            ]
+        },
+        {
+            "tag":"ECO_SPORTS_V2_colors",
+            "patterns": [
+                "ECO SPORTS V2 colors",
+                "ECO SPORTS V2 color options",
+                "ECO SPORTS V2 available colors"
+            ],
+            "responses": [
+                "The ECO SPORTS V2 is available in green, dark blue and red. It offers a sleek design and advanced features for urban commuting.",
+                "ECO SPORTS V2 comes in two colors: green, dark blue and red. It is designed for urban commuting with advanced features."
+            ]
+        },
+        {
+            "tag":"SPEEGO_Q5_colors",
+            "patterns": [
+                "SPEEGO Q5 colors",
+                "SPEEGO Q5 color options",
+                "SPEEGO Q5 available colors"
+            ],
+            "responses": [
+                "The SPEEGO Q5 is available in beige and red. It provides excellent performance and comfort for long-distance rides.",
+                "SPEEGO Q5 comes in two colors: beige and red. It is designed for long-distance rides and provides excellent performance."
+            ]
+        },
+        {
+            "tag":"SpeeGo_4_Wheel_Solar_colors",
+            "patterns": [
+                "SpeeGo 4 Wheel Solar colors",
+                "SpeeGo 4 Wheel Solar color options",
+                "SpeeGo 4 Wheel Solar available colors"
+            ],
+            "responses": [
+                "The SpeeGo 4 Wheel Solar is available in gray, dark red and aqua. It features solar charging capabilities for eco-friendly commuting.",
+                "SpeeGo 4 Wheel Solar comes in two colors: gray, dark red and aqua. It is designed for eco-friendly commuting with solar charging capabilities."
+            ]
+        },
+        {
+            "tag":"ECO_TRIP_V2_colors",
+            "patterns": [
+                "ECO TRIP V2 colors",
+                "ECO TRIP V2 color options",
+                "ECO TRIP V2 available colors"
+            ],
+            "responses": [
+                "The ECO TRIP V2 is available in green and dark red. It offers a comfortable ride with advanced features for leisure biking.",
+                "ECO TRIP V2 comes in two colors: green and dark red. It is designed for leisure biking and provides a comfortable ride."
+            ]
+        },
+        {
+            "tag": "bike_recommendation",
+            "patterns": [
+                "which bike should I buy?",
+                "recommend a bike for me",
+                "what bike do you suggest?",
+                "best bike for me?"
+            ],
+            "responses": [
+                "I can help with that! Can you tell me more about your riding preferences and budget?",
+                "Sure! What type of riding do you plan to do and what is your budget? That way I can recommend the best bike for you.",
+                "I'd be happy to recommend a bike! Can you share more about your riding style and budget so I can suggest the perfect fit?"
+            ]
+        },
+        {
+            "tag": "3_wheels",
+            "patterns":[
+                "In the 3 wheels category, we have Ecosada V2, ECO SPORTS V2, and SPEEGO Q5. They are perfect for eco-friendly commuting and leisure riding.",
+                "We have 3 wheels bikes available, Ecosada V2, ECO SPORTS V2, and SPEEGO Q5. They are designed for eco-friendly commuting and leisure riding.",
+                "Our 3 wheels bikes include Ecosada V2, ECO SPORTS V2, and SPEEGO Q5. They are perfect for eco-friendly adventure around the city."
+            ]   
+        },
+        {
+            "tag": "4_wheels",
+            "patterns":[
+                "In the 4 wheels category, we have SpeeGo 4 Wheel Solar. It features solar charging capabilities for eco-friendly commuting.",
+                "We have a 4 wheels bike available, SpeeGo 4 Wheel Solar. It is designed for eco-friendly commuting with solar charging capabilities.",
+                "Our 4 wheels bike is the SpeeGo 4 Wheel Solar. It is perfect for eco-friendly commuting with solar charging capabilities."
+            ]   
+        }
+    ]
+}

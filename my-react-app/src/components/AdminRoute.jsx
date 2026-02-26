@@ -20,6 +20,12 @@ export default function AdminRoute({ children }) {
         return
       }
 
+      if (!session.user?.email_confirmed_at) {
+        setAllowed(false)
+        setLoading(false)
+        return
+      }
+
       // 2) Check profile.role === 'admin'
       const { data: profile, error } = await supabase
         .from("profiles")

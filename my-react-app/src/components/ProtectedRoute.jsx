@@ -17,6 +17,11 @@ export default function ProtectedRoute({ children }) {
         return
       }
 
+      if (!user.email_confirmed_at) {
+        setLoading(false)
+        return
+      }
+
       const { data } = await supabase
         .from("profiles")
         .select("role")
@@ -32,7 +37,7 @@ export default function ProtectedRoute({ children }) {
 
   if (loading) return <p>Loading...</p>
 
-  if (!isAdmin) return <Navigate to="/login" />
+  if (!isAdmin) return <Navigate to="/login" replace />
 
   return children
 }
