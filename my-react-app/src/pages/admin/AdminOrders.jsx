@@ -46,6 +46,7 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [monthFilter, setMonthFilter] = useState("")
   const [dayFilter, setDayFilter] = useState("")
+  const [notifyBanner, setNotifyBanner] = useState(null)
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -103,6 +104,7 @@ export default function AdminOrders() {
 
   const handleStatusChange = async (orderId, newStatus) => {
     setSavingStatusId(orderId)
+    setNotifyBanner(null)
 
     const currentOrder = orders.find((o) => o.id === orderId)
     const previousStatus = currentOrder?.status
@@ -124,6 +126,52 @@ export default function AdminOrders() {
       if (stockError) {
         console.error("Error restoring stock for cancelled order:", stockError)
         alert("Order cancelled, but failed to restore stock. Check logs.")
+      }
+    }
+
+    if (["confirmed", "cancelled"].includes(newStatus)) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const accessToken = session?.access_token
+      if (!accessToken) {
+        setNotifyBanner({
+          type: "error",
+          message: "Status updated, but email was not sent because your admin session token is missing. Please log out and log in again.",
+        })
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)))
+        setSavingStatusId(null)
+        return
+      }
+
+      const { error: notifyError } = await supabase.functions.invoke("notify-order-status", {
+        body: { order_id: orderId, status: newStatus },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+
+      if (notifyError) {
+        console.error("Order status updated but email notification failed:", notifyError)
+        let detail = ""
+        try {
+          const payload = await notifyError.context?.json?.()
+          detail =
+            payload?.provider_response ||
+            payload?.error ||
+            payload?.message ||
+            (payload ? JSON.stringify(payload) : "")
+        } catch (_err) {
+          // no-op
+        }
+        setNotifyBanner({
+          type: "error",
+          message: `Status updated, but failed to send ${newStatus} email for order ${orderId}.${detail ? ` Reason: ${detail}` : ""}`,
+        })
+      } else {
+        setNotifyBanner({
+          type: "success",
+          message: `Customer notified: ${newStatus} email sent for order ${orderId}.`,
+        })
       }
     }
 
@@ -273,6 +321,19 @@ export default function AdminOrders() {
       {errorMsg && (
         <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-100">
           {errorMsg}
+        </div>
+      )}
+
+      {notifyBanner && (
+        <div
+          className={[
+            "rounded-2xl p-4 text-sm",
+            notifyBanner.type === "success"
+              ? "border border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+              : "border border-amber-400/30 bg-amber-500/10 text-amber-100",
+          ].join(" ")}
+        >
+          {notifyBanner.message}
         </div>
       )}
 

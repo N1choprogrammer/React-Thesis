@@ -6,6 +6,25 @@ import { useTheme } from "../context/ThemeContext"
 
 const GOOGLE_ENABLED = true // for google login button
 
+function validateSignupPassword(password) {
+  if (password.length < 8) {
+    return "Password must be at least 8 characters."
+  }
+  if (!/[a-z]/.test(password)) {
+    return "Password must include at least one lowercase letter."
+  }
+  if (!/[A-Z]/.test(password)) {
+    return "Password must include at least one uppercase letter."
+  }
+  if (!/[0-9]/.test(password)) {
+    return "Password must include at least one number."
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return "Password must include at least one special character."
+  }
+  return ""
+}
+
 export default function Login() {
   const { isDark, toggleTheme } = useTheme()
   const [mode, setMode] = useState("login") // "login" | "signup"
@@ -104,8 +123,9 @@ export default function Login() {
       }
 
       if (mode === "signup") {
-        if (password.length < 6) {
-          setError("Password must be at least 6 characters.")
+        const passwordValidationError = validateSignupPassword(password)
+        if (passwordValidationError) {
+          setError(passwordValidationError)
           return
         }
         if (password !== confirmPassword) {
@@ -478,6 +498,11 @@ export default function Login() {
                       {showPassword ? "Hide" : "Show"}
                     </button>
                   </div>
+                  {mode === "signup" && (
+                    <p className={["text-xs", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+                      Use at least 8 characters with uppercase, lowercase, number, and special character.
+                    </p>
+                  )}
                 </div>
 
                 {mode === "login" && (

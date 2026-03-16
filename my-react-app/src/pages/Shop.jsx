@@ -24,7 +24,7 @@ export default function Shop() {
     )
   }, [quickViewProduct])
   const [recentlyAddedId, setRecentlyAddedId] = useState(null)
-  const [toastMessage, setToastMessage] = useState(null)
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -125,16 +125,20 @@ export default function Shop() {
     }
   }, [products, searchParams, setSearchParams])
 
-  const handleAdded = (product, color) => {
+  const showToast = (message, type = "success", timeoutMs = 3200) => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), timeoutMs)
+  }
+
+  const handleAdded = (product, color, qty = 1) => {
     setRecentlyAddedId(product.id)
     setTimeout(() => setRecentlyAddedId(null), 350)
 
     const message = color
-      ? `Added to cart: ${product.name} (${color})`
-      : `Added to cart: ${product.name}`
+      ? `Added to cart: ${product.name} (${color}) x${qty}`
+      : `Added to cart: ${product.name} x${qty}`
 
-    setToastMessage(message)
-    setTimeout(() => setToastMessage(null), 2200)
+    showToast(message, "success")
   }
 
   return (
@@ -203,6 +207,7 @@ export default function Shop() {
                 product={product}
                 addToCart={addToCart}
                 onAdded={handleAdded}
+                onNotify={showToast}
                 isRecentlyAdded={recentlyAddedId === product.id}
                 onOpenQuickView={() => setQuickViewProduct(product)}
                 isDark={isDark}
@@ -218,22 +223,32 @@ export default function Shop() {
           onClose={() => setQuickViewProduct(null)}
           addToCart={addToCart}
           onAdded={handleAdded}
+          onNotify={showToast}
           isDark={isDark}
         />
       )}
 
-      {toastMessage && (
+      {toast && (
         <div className={[
-          "fixed left-1/2 top-5 z-[90] w-[min(92vw,560px)] -translate-x-1/2 rounded-xl border border-red-400/30 px-4 py-3 text-sm font-medium backdrop-blur",
-          isDark
-            ? "bg-zinc-950/95 text-zinc-100 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
-            : "bg-white/95 text-zinc-900 shadow-[0_14px_40px_rgba(17,24,39,0.12)]",
+          "fixed left-1/2 top-5 z-[90] w-[min(94vw,640px)] -translate-x-1/2 rounded-2xl border px-5 py-4 text-base font-semibold backdrop-blur",
+          toast.type === "error"
+            ? (isDark
+                ? "border-red-400/40 bg-red-950/95 text-red-100 shadow-[0_24px_70px_rgba(127,29,29,0.55)]"
+                : "border-red-300 bg-red-50/95 text-red-800 shadow-[0_16px_50px_rgba(127,29,29,0.18)]")
+            : (isDark
+                ? "border-emerald-400/40 bg-emerald-950/95 text-emerald-100 shadow-[0_24px_70px_rgba(6,78,59,0.45)]"
+                : "border-emerald-300 bg-emerald-50/95 text-emerald-800 shadow-[0_16px_50px_rgba(6,78,59,0.18)]"),
         ].join(" ")}>
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-400/30 bg-red-500/10 text-red-300">
-              +
+            <span className={[
+              "inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm",
+              toast.type === "error"
+                ? (isDark ? "border-red-300/40 bg-red-500/15 text-red-200" : "border-red-300 bg-red-100 text-red-700")
+                : (isDark ? "border-emerald-300/40 bg-emerald-500/15 text-emerald-200" : "border-emerald-300 bg-emerald-100 text-emerald-700"),
+            ].join(" ")}>
+              {toast.type === "error" ? "!" : "+"}
             </span>
-            <span>{toastMessage}</span>
+            <span>{toast.message}</span>
           </div>
         </div>
       )}
@@ -329,7 +344,7 @@ function StockBadge({ stock, selectedColor, isDark }) {
   )
 }
 
-function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuickView, isDark }) {
+function ProductCard({ product, addToCart, onAdded, onNotify, isRecentlyAdded, onOpenQuickView, isDark }) {
   const [qty, setQty] = useState(1)
   const navigate = useNavigate()
   const imagePaths = getImagePaths(product)
@@ -362,17 +377,20 @@ function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuick
     }
 
     if (!inStock) {
-      alert("This product is currently out of stock.")
+      onNotify?.(
+        `No more stock for ${product.name}${selectedColor ? ` (${selectedColor})` : ""}.`,
+        "error"
+      )
       return
     }
 
     let finalQty = qty
     if (stock !== null && finalQty > stock) {
-      finalQty = stock
-      setQty(stock)
-      alert(
-        `Only ${stock} unit(s) available for ${product.name} (${selectedColor}). Quantity has been adjusted.`
+      onNotify?.(
+        `No more stock for ${product.name}${selectedColor ? ` (${selectedColor})` : ""}. Only ${stock} unit(s) left.`,
+        "error"
       )
+      return
     }
 
     const productForCart = { ...product, stock }
@@ -385,17 +403,24 @@ function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuick
     )
 
     if (!res.ok) {
-      alert("Failed to add to cart. Please try again.")
+      if (res.reason === "insufficient_stock") {
+        const available = Number.isFinite(res.available) ? res.available : stock
+        onNotify?.(
+          `No more stock for ${product.name}${selectedColor ? ` (${selectedColor})` : ""}. Available: ${available}.`,
+          "error"
+        )
+        return
+      }
+      onNotify?.("Failed to add to cart. Please try again.", "error")
       return
     }
 
-    onAdded?.(product, selectedColor)
+    onAdded?.(product, selectedColor, finalQty)
   }
 
   const handleQtyChange = (e) => {
     let value = Number(e.target.value)
     if (Number.isNaN(value) || value < 1) value = 1
-    if (stock !== null && value > stock) value = stock
     setQty(value)
   }
 
@@ -537,7 +562,7 @@ function ProductCard({ product, addToCart, onAdded, isRecentlyAdded, onOpenQuick
   )
 }
 
-function QuickViewModal({ product, onClose, addToCart, onAdded, isDark }) {
+function QuickViewModal({ product, onClose, addToCart, onAdded, onNotify, isDark }) {
   const imagePaths = getImagePaths(product)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [qty, setQty] = useState(1)
@@ -563,7 +588,6 @@ function QuickViewModal({ product, onClose, addToCart, onAdded, isDark }) {
   const handleQtyChange = (e) => {
     let value = Number(e.target.value)
     if (Number.isNaN(value) || value < 1) value = 1
-    if (stock !== null && value > stock) value = stock
     setQty(value)
   }
 
@@ -577,17 +601,20 @@ function QuickViewModal({ product, onClose, addToCart, onAdded, isDark }) {
       return
     }
     if (!inStock) {
-      alert("This product is currently out of stock.")
+      onNotify?.(
+        `No more stock for ${product.name}${selectedColor ? ` (${selectedColor})` : ""}.`,
+        "error"
+      )
       return
     }
 
     let finalQty = qty
     if (stock !== null && finalQty > stock) {
-      finalQty = stock
-      setQty(stock)
-      alert(
-        `Only ${stock} unit(s) available for ${product.name} (${selectedColor}). Quantity has been adjusted.`
+      onNotify?.(
+        `No more stock for ${product.name}${selectedColor ? ` (${selectedColor})` : ""}. Only ${stock} unit(s) left.`,
+        "error"
       )
+      return
     }
 
     const productForCart = { ...product, stock }
@@ -601,10 +628,18 @@ function QuickViewModal({ product, onClose, addToCart, onAdded, isDark }) {
         selectedVariant?.id ?? null
       )
       if (!res?.ok) {
-        alert("Failed to add to cart. Please try again.")
+        if (res.reason === "insufficient_stock") {
+          const available = Number.isFinite(res.available) ? res.available : stock
+          onNotify?.(
+            `No more stock for ${product.name}${selectedColor ? ` (${selectedColor})` : ""}. Available: ${available}.`,
+            "error"
+          )
+          return
+        }
+        onNotify?.("Failed to add to cart. Please try again.", "error")
         return
       }
-      onAdded?.(product, selectedColor)
+      onAdded?.(product, selectedColor, finalQty)
     } finally {
       setAdding(false)
     }

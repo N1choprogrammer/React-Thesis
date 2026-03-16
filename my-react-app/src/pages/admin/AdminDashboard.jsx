@@ -11,6 +11,13 @@ import {
   YAxis,
 } from "recharts"
 
+const SALES_INCLUDED_STATUSES = new Set([
+  "confirmed",
+  "processing",
+  "ready_for_pickup",
+  "completed",
+])
+
 function formatPeso(amount) {
   if (amount == null) return "PHP 0"
   return "PHP " + Number(amount).toLocaleString()
@@ -64,6 +71,9 @@ function buildChartData(orders, mode) {
   const buckets = new Map()
 
   orders.forEach((order) => {
+    const status = String(order.status || "").toLowerCase()
+    if (!SALES_INCLUDED_STATUSES.has(status)) return
+
     if (!order.created_at) return
     const d = new Date(order.created_at)
     if (Number.isNaN(d.getTime())) return
@@ -161,7 +171,24 @@ export default function AdminDashboard() {
   const [allOrders, setAllOrders] = useState([])
   const [recentOrders, setRecentOrders] = useState([])
   const [chartMode, setChartMode] = useState("month")
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, "0")
+    return `${y}-${m}`
+  })
   const [chartData, setChartData] = useState([])
+
+  const getFilteredOrdersForChart = (orders, mode, monthValue) => {
+    if (mode !== "month" || !monthValue) return orders
+    return orders.filter((o) => {
+      if (!o?.created_at) return false
+      const d = new Date(o.created_at)
+      if (Number.isNaN(d.getTime())) return false
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+      return key === monthValue
+    })
+  }
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -181,17 +208,20 @@ export default function AdminDashboard() {
           .order("created_at", { ascending: false })
         if (ordersError) throw ordersError
 
-        const totalSales = (orders || []).reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
+        const includedOrders = (orders || []).filter((o) =>
+          SALES_INCLUDED_STATUSES.has(String(o.status || "").toLowerCase())
+        )
+        const totalSales = includedOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
 
         setStats({
           totalProducts: (products || []).length,
-          totalOrders: (orders || []).length,
+          totalOrders: includedOrders.length,
           totalUsers: (profiles || []).length,
           totalSales,
         })
         setAllOrders(orders || [])
         setRecentOrders((orders || []).slice(0, 6))
-        setChartData(buildChartData(orders || [], chartMode))
+        setChartData(buildChartData(getFilteredOrdersForChart(orders || [], chartMode, selectedMonth), chartMode))
       } catch (err) {
         console.error("Error loading dashboard:", err)
         setErrorMsg(err.message || "Failed to load dashboard.")
@@ -204,8 +234,16 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
-    setChartData(buildChartData(allOrders, chartMode))
-  }, [chartMode, allOrders])
+    const filtered = getFilteredOrdersForChart(allOrders, chartMode, selectedMonth)
+    setChartData(buildChartData(filtered, chartMode))
+  }, [chartMode, allOrders, selectedMonth])
+
+  const salesValues = chartData.map((d) => Number(d.sales || 0)).filter((n) => Number.isFinite(n))
+  const salesMin = salesValues.length ? Math.min(...salesValues) : 0
+  const salesMax = salesValues.length ? Math.max(...salesValues) : 0
+  const salesPadding = Math.max((salesMax - salesMin) * 0.15, Math.max(salesMax * 0.08, 1))
+  const salesAxisMin = Math.max(0, salesMin - salesPadding)
+  const salesAxisMax = Math.max(1, salesMax + salesPadding)
 
   return (
     <div className="space-y-6">
@@ -242,22 +280,32 @@ export default function AdminDashboard() {
             <section className="rounded-3xl border border-white/10 bg-zinc-950/85 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold text-white">Orders and sales trend</h3>
-                <div className="inline-flex rounded-xl border border-white/10 bg-black/30 p-1">
-                  {["week", "month", "year"].map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setChartMode(mode)}
-                      className={[
-                        "rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition",
-                        chartMode === mode
-                          ? "bg-red-600 text-white"
-                          : "text-black hover:bg-white/5 hover:text-white",
-                      ].join(" ")}
-                    >
-                      {mode}
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="inline-flex rounded-xl border border-white/10 bg-black/30 p-1">
+                    {["week", "month", "year"].map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setChartMode(mode)}
+                        className={[
+                          "rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition",
+                          chartMode === mode
+                            ? "bg-red-600 text-white"
+                            : "text-black hover:bg-white/5 hover:text-white",
+                        ].join(" ")}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                  {chartMode === "month" && (
+                    <input
+                      type="month"
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white outline-none focus:border-red-400/60 focus:ring-2 focus:ring-red-500/20"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -270,11 +318,17 @@ export default function AdminDashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                      <XAxis dataKey="label" tick={{ fill: "#a1a1aa", fontSize: 11 }} />
+                      <XAxis
+                        dataKey="label"
+                        interval={0}
+                        minTickGap={0}
+                        tick={{ fill: "#a1a1aa", fontSize: 11 }}
+                      />
                       <YAxis yAxisId="left" tick={{ fill: "#a1a1aa", fontSize: 11 }} />
                       <YAxis
                         yAxisId="right"
                         orientation="right"
+                        domain={[salesAxisMin, salesAxisMax]}
                         tick={{ fill: "#a1a1aa", fontSize: 11 }}
                         tickFormatter={(v) => `PHP ${(v / 1000).toFixed(0)}k`}
                       />
@@ -285,7 +339,8 @@ export default function AdminDashboard() {
                         type="monotone"
                         dataKey="orders"
                         name="Orders"
-                        dot={false}
+                        dot={{ r: 3, fill: "#f87171", strokeWidth: 0 }}
+                        activeDot={{ r: 5 }}
                         stroke="#f87171"
                         strokeWidth={2}
                       />
@@ -296,7 +351,8 @@ export default function AdminDashboard() {
                         name="Sales (PHP)"
                         stroke="#fff"
                         strokeDasharray="5 3"
-                        dot={false}
+                        dot={{ r: 3, fill: "#fff", strokeWidth: 0 }}
+                        activeDot={{ r: 5 }}
                         strokeWidth={2}
                       />
                     </LineChart>

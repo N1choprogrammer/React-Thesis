@@ -53,9 +53,8 @@ export function CartProvider({ children }) {
       let data = null
       let error = null
 
-      const primary = await supabase
-        .from("cart_items")
-        .select(`
+      const selectAttempts = [
+        `
           id,
           cart_id,
           product_id,
@@ -65,30 +64,46 @@ export function CartProvider({ children }) {
           image_path,
           price_snapshot,
           products:products ( name, price, stock )
-        `)
-        .eq("cart_id", activeCartId)
-        .order("created_at", { ascending: false })
+        `,
+        `
+          id,
+          cart_id,
+          product_id,
+          quantity,
+          color,
+          image_path,
+          price_snapshot,
+          products:products ( name, price, stock )
+        `,
+        `
+          id,
+          cart_id,
+          product_id,
+          quantity,
+          color,
+          price_snapshot,
+          products:products ( name, price, stock )
+        `,
+        `
+          id,
+          cart_id,
+          product_id,
+          quantity,
+          color,
+          products:products ( name, price, stock )
+        `,
+      ]
 
-      data = primary.data
-      error = primary.error
-
-      if (error && String(error.message || "").toLowerCase().includes("variant_id")) {
-        const fallback = await supabase
+      for (const selectText of selectAttempts) {
+        const res = await supabase
           .from("cart_items")
-          .select(`
-            id,
-            cart_id,
-            product_id,
-            quantity,
-            color,
-            image_path,
-            price_snapshot,
-            products:products ( name, price, stock )
-          `)
+          .select(selectText)
           .eq("cart_id", activeCartId)
           .order("created_at", { ascending: false })
-        data = fallback.data
-        error = fallback.error
+
+        data = res.data
+        error = res.error
+        if (!error) break
       }
 
       if (error) throw error
@@ -249,6 +264,19 @@ export function CartProvider({ children }) {
     if (findErr) {
       console.error("Find cart item error:", findErr)
       return { ok: false, reason: "db_error" }
+    }
+
+    const stockLimit = Number.isFinite(Number(product?.stock))
+      ? Number(product.stock)
+      : null
+    const existingQty = Number(existing?.quantity || 0)
+    if (stockLimit !== null && existingQty + safeQty > stockLimit) {
+      return {
+        ok: false,
+        reason: "insufficient_stock",
+        available: Math.max(stockLimit - existingQty, 0),
+        stock: stockLimit,
+      }
     }
 
     if (existing?.id) {

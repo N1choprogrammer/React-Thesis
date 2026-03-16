@@ -42,6 +42,12 @@ export default function Cart() {
   const [placingOrder, setPlacingOrder] = useState(false)
   const [orderSuccessId, setOrderSuccessId] = useState(null)
   const [orderError, setOrderError] = useState(null)
+  const showCartError = (message) => {
+    setOrderError(message)
+    setTimeout(() => {
+      setOrderError((current) => (current === message ? null : current))
+    }, 3200)
+  }
 
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0),
@@ -56,7 +62,7 @@ export default function Cart() {
 
     if (typeof item.stock === "number" && qty > item.stock) {
       qty = item.stock
-      alert(`Maximum available stock for ${item.name} is ${item.stock}.`)
+      showCartError(`No more stock for ${item.name}${item.color ? ` (${item.color})` : ""}. Available: ${item.stock}.`)
     }
 
     updateQuantity(item.id, qty)
@@ -265,6 +271,21 @@ export default function Cart() {
 
       if (stockErr) {
         console.error("Stock update error:", stockErr)
+      }
+
+      // Notify admin emails about a newly created order (best-effort).
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession()
+      const accessToken = currentSession?.access_token
+      if (accessToken) {
+        const { error: adminNotifyErr } = await supabase.functions.invoke("notify-admin-new-order", {
+          body: { order_id: orderData.id },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (adminNotifyErr) {
+          console.error("Admin new-order notification error:", adminNotifyErr)
+        }
       }
 
       await supabase
