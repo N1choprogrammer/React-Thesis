@@ -4,7 +4,10 @@
     {
       "src": "my-react-app/package.json",
       "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+      "config": {
+        "buildCommand": "npm run build",
+        "distDir": "dist"
+      }
     }
   ],
   "rewrites": [
