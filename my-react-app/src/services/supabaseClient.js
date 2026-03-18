@@ -12,6 +12,65 @@ function missingConfigError() {
   return { message: missingConfigMessage }
 }
 
+function createMissingQueryResult(data = null) {
+  return { data, error: missingConfigError() }
+}
+
+function createMissingQueryBuilder(defaultData = []) {
+  const builder = {
+    select() {
+      return builder
+    },
+    insert() {
+      return builder
+    },
+    update() {
+      return builder
+    },
+    delete() {
+      return builder
+    },
+    eq() {
+      return builder
+    },
+    in() {
+      return builder
+    },
+    gt() {
+      return builder
+    },
+    gte() {
+      return builder
+    },
+    lt() {
+      return builder
+    },
+    lte() {
+      return builder
+    },
+    order() {
+      return builder
+    },
+    limit() {
+      return builder
+    },
+    maybeSingle: async () => createMissingQueryResult(null),
+    single: async () => createMissingQueryResult(null),
+    then(resolve) {
+      return Promise.resolve(createMissingQueryResult(defaultData)).then(resolve)
+    },
+    catch(reject) {
+      return Promise.resolve(createMissingQueryResult(defaultData)).catch(reject)
+    },
+  }
+
+  return builder
+}
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error(missingConfigMessage)
+}
+
 export const supabase = (!supabaseUrl || !supabaseAnonKey)
   ? {
       auth: {
@@ -24,16 +83,9 @@ export const supabase = (!supabaseUrl || !supabaseAnonKey)
         signInWithOAuth: async () => ({ data: null, error: missingConfigError() }),
         resetPasswordForEmail: async () => ({ error: missingConfigError() }),
       },
-      from: (table) => ({
-        select: async () => ({ data: [], error: missingConfigError() }),
-        insert: async () => ({ data: null, error: missingConfigError() }),
-        update: async () => ({ data: null, error: missingConfigError() }),
-        delete: async () => ({ data: null, error: missingConfigError() }),
-        eq: function() { return this; },
-        single: function() { return this; },
-      }),
+      from: () => createMissingQueryBuilder([]),
       storage: {
-        from: (bucket) => ({
+        from: () => ({
           getPublicUrl: (path) => ({ data: { publicUrl: '' } }),
           upload: async () => ({ data: null, error: missingConfigError() }),
           remove: async () => ({ error: missingConfigError() }),
@@ -42,6 +94,6 @@ export const supabase = (!supabaseUrl || !supabaseAnonKey)
       functions: {
         invoke: async () => ({ data: null, error: missingConfigError() }),
       },
-      rpc: async () => ({ data: null, error: missingConfigError() }),
+      rpc: async () => createMissingQueryResult(null),
     }
   : createClient(supabaseUrl, supabaseAnonKey)
