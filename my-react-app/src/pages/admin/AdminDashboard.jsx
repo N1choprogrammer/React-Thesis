@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 import { supabase } from "../../services/supabaseClient"
 import {
   CartesianGrid,
@@ -220,7 +221,7 @@ export default function AdminDashboard() {
           totalSales,
         })
         setAllOrders(orders || [])
-        setRecentOrders((orders || []).slice(0, 6))
+        setRecentOrders((orders || []).slice(0, 2))
         setChartData(buildChartData(getFilteredOrdersForChart(orders || [], chartMode, selectedMonth), chartMode))
       } catch (err) {
         console.error("Error loading dashboard:", err)
@@ -408,6 +409,17 @@ export default function AdminDashboard() {
                       </div>
                     )
                   })}
+                </div>
+              )}
+
+              {recentOrders.length > 0 && (
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <Link
+                    to="/admin/orders"
+                    className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-100 transition hover:bg-white/10"
+                  >
+                    See more
+                  </Link>
                 </div>
               )}
             </section>

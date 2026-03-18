@@ -181,6 +181,7 @@ export default function AdminLayout() {
           )}
 
           <Routes>
+            <Route index element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="products/new" element={<AdminProductForm mode="create" />} />
@@ -188,7 +189,7 @@ export default function AdminLayout() {
             <Route path="orders" element={<AdminOrders />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="messages" element={<AdminMessages />} />
-            <Route path="*" element={<AdminProducts />} />
+            <Route path="*" element={<AdminDashboard />} />
           </Routes>
         </section>
       </div>

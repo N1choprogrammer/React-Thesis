@@ -129,7 +129,7 @@ export default function AdminOrders() {
       }
     }
 
-    if (["confirmed", "cancelled"].includes(newStatus)) {
+    if (["confirmed", "cancelled", "completed"].includes(newStatus)) {
       const {
         data: { session },
       } = await supabase.auth.getSession()

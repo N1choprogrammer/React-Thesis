@@ -96,7 +96,7 @@ export default function AdminNotifications() {
         </div>
         <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">Order notification logs</h2>
         <p className="mt-2 text-sm leading-6 text-zinc-300">
-          Email delivery history for order status updates (confirmed/cancelled).
+          Email delivery history for new orders and customer order status updates.
         </p>
       </div>
 
@@ -118,6 +118,7 @@ export default function AdminNotifications() {
             <option value="new_order">New order</option>
             <option value="confirmed">Confirmed</option>
             <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
           </select>
           <select
             value={resultFilter}
@@ -155,7 +156,7 @@ export default function AdminNotifications() {
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold">Recipient</th>
                 <th className="px-4 py-3 font-semibold">Result</th>
-                <th className="px-4 py-3 font-semibold">Items (Product / Color)</th>
+                <th className="px-4 py-3 font-semibold">Product / Color</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10 text-zinc-200">

@@ -34,6 +34,7 @@ export default function Login() {
 
   const navigate = useNavigate()
   const location = useLocation()
+  const searchParams = new URLSearchParams(location.search)
 
   const handleBack = () => {
     const returnTo = location.state?.returnTo
@@ -51,7 +52,7 @@ export default function Login() {
 
   // helper: redirect based on role + returnTo
   const redirectAfterLogin = async (userId) => {
-    const returnTo = location.state?.returnTo
+    const returnTo = location.state?.returnTo || searchParams.get("next")
 
     if (!userId) {
       navigate(returnTo || "/", { replace: true })
@@ -131,7 +132,7 @@ export default function Login() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/login`,
+            emailRedirectTo: `${window.location.origin}/login?next=/profile`,
           },
         })
 

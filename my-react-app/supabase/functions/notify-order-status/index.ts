@@ -47,10 +47,13 @@ function buildEmailContent(params: {
   supportEmail: string
 }) {
   const { status, customerName, orderId, totalAmount, siteUrl, supportEmail } = params
-  const statusLabel = status === "confirmed" ? "confirmed" : "cancelled"
+  const statusLabel =
+    status === "confirmed" ? "confirmed" : status === "completed" ? "completed" : "cancelled"
   const subject =
     status === "confirmed"
       ? "Your SPEEGO order has been confirmed"
+      : status === "completed"
+      ? "Thank you for choosing SPEEGO E-Bikes"
       : "Update on your SPEEGO order"
 
   const html = `
@@ -64,6 +67,8 @@ function buildEmailContent(params: {
       ${
         status === "confirmed"
           ? `<p style="margin: 0 0 20px;">We are now preparing your order. You can track updates in your account.</p>`
+          : status === "completed"
+          ? `<p style="margin: 0 0 20px;">Thank you for choosing SPEEGO E-Bikes. Your order has been completed, and we appreciate your trust in our products. We hope you enjoy your new ride.</p>`
           : `<p style="margin: 0 0 20px;">If you have questions about this cancellation, please reply to this email or contact the SPEEGO team.</p>`
       }
       <p style="margin: 0 0 20px; color: #52525b;">For questions or concerns, you can reply directly to this email or contact us at <strong>${supportEmail}</strong>.</p>
@@ -76,6 +81,8 @@ function buildEmailContent(params: {
   const text =
     status === "confirmed"
       ? `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is confirmed. Total: ${formatPeso(totalAmount)}. Track updates: ${siteUrl}/my-orders. For questions, reply to this email or contact ${supportEmail}.`
+      : status === "completed"
+      ? `Hi ${customerName || "Customer"}, thank you for choosing SPEEGO E-Bikes. Your order ${orderId} has been completed. Total: ${formatPeso(totalAmount)}. We appreciate your trust in our products. For questions, reply to this email or contact ${supportEmail}.`
       : `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is cancelled. Total: ${formatPeso(totalAmount)}. View details: ${siteUrl}/my-orders. For questions, reply to this email or contact ${supportEmail}.`
 
   return { subject, html, text }
@@ -276,7 +283,7 @@ Deno.serve(async (req: Request) => {
     const orderId = String(body?.order_id || "").trim()
     const status = String(body?.status || "").trim().toLowerCase()
 
-    if (!orderId || !["confirmed", "cancelled"].includes(status)) {
+    if (!orderId || !["confirmed", "cancelled", "completed"].includes(status)) {
       return new Response(JSON.stringify({ error: "Invalid payload." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
