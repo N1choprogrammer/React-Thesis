@@ -5,6 +5,11 @@ import { supabase } from "../services/supabaseClient"
 import { requireCustomerProfile } from "../utils/requireCustomerProfile"
 import { useTheme } from "../context/ThemeContext"
 
+const GCASH_ACCOUNT_NAME =
+  import.meta.env.VITE_GCASH_ACCOUNT_NAME || "SPEEGO E-BIKES"
+const GCASH_ACCOUNT_NUMBER =
+  import.meta.env.VITE_GCASH_ACCOUNT_NUMBER || "09XX XXX XXXX"
+
 function peso(value) {
   return `PHP ${Number(value || 0).toLocaleString()}`
 }
@@ -55,6 +60,16 @@ export default function Cart() {
   )
   const parsedDownPayment = Number(String(downPayment || "").replace(/,/g, ""))
   const validDownPayment = Number.isFinite(parsedDownPayment) && parsedDownPayment > 0
+  const minimumDownPayment = Math.ceil(total * 0.2)
+
+  const handlePaymentMethodChange = (nextMethod) => {
+    setPaymentMethod(nextMethod)
+    if (nextMethod !== "gcash") {
+      setDownPayment("")
+      setProofFile(null)
+      setProofPreviewName("")
+    }
+  }
 
   const handleQtyChange = (item, newQty) => {
     let qty = Number(newQty)
@@ -146,6 +161,12 @@ export default function Cart() {
           setOrderError("Please enter a valid GCash down payment amount.")
           return
         }
+        if (parsedDownPayment < minimumDownPayment) {
+          setOrderError(
+            `GCash down payment must be at least 20% of the order total (${peso(minimumDownPayment)}).`
+          )
+          return
+        }
         if (parsedDownPayment > total) {
           setOrderError("Down payment cannot be higher than the total amount.")
           return
@@ -153,7 +174,7 @@ export default function Cart() {
       }
 
       let paymentProofPath = null
-      if (proofFile) {
+      if (normalizedPaymentMethod === "gcash" && proofFile) {
         const safeName = `${Date.now()}-${String(proofFile.name || "proof").replace(/[^a-zA-Z0-9._-]/g, "_")}`
         const proofPath = `${gate.user.id}/${safeName}`
         const upload = await supabase.storage.from("payment-proofs").upload(proofPath, proofFile, {
@@ -183,7 +204,7 @@ export default function Cart() {
         payment_notes:
           normalizedPaymentMethod === "bank_transfer"
             ? "Customer selected bank transfer. Manager will contact customer for payment coordination."
-            : "Customer selected GCash down payment.",
+            : `Customer selected GCash down payment. Minimum required: ${peso(minimumDownPayment)}.`,
       }
 
       let { data: orderData, error: orderErr } = await supabase
@@ -209,7 +230,7 @@ export default function Cart() {
             notes:
               normalizedPaymentMethod === "gcash"
                 ? `Payment method: GCash (down payment ${peso(parsedDownPayment)}). Proof uploaded: ${paymentProofPath || "yes"}`
-                : "Payment method: Bank Transfer. Manager will contact customer. Proof uploaded.",
+                : "Payment method: Bank Transfer. Manager will contact customer.",
           }
 
           let fallback = await supabase.from("orders").insert(legacyPayload).select().single()
@@ -505,7 +526,7 @@ export default function Cart() {
                         name="payment_method"
                         value="gcash"
                         checked={paymentMethod === "gcash"}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        onChange={(e) => handlePaymentMethodChange(e.target.value)}
                         className="mt-0.5 accent-red-500"
                       />
                       <span>
@@ -525,7 +546,7 @@ export default function Cart() {
                         name="payment_method"
                         value="bank_transfer"
                         checked={paymentMethod === "bank_transfer"}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        onChange={(e) => handlePaymentMethodChange(e.target.value)}
                         className="mt-0.5 accent-red-500"
                       />
                       <span>
@@ -539,61 +560,110 @@ export default function Cart() {
                 </Field>
 
                 {paymentMethod === "gcash" && (
-                  <Field label="GCash down payment amount" isDark={isDark}>
-                    <div className="space-y-2">
-                      <input
-                        type="number"
-                        min="1"
-                        max={Math.max(1, total)}
-                        required={paymentMethod === "gcash"}
-                        value={downPayment}
-                        onChange={(e) => setDownPayment(e.target.value)}
-                        placeholder="Enter down payment"
+                  <>
+                    <Field label="GCash payment details" isDark={isDark}>
+                      <div
                         className={[
-                          "h-11 w-full rounded-xl px-3 text-sm outline-none placeholder:text-zinc-500 focus:border-red-400/50",
-                          isDark ? "border border-white/10 bg-zinc-900 text-white" : "border border-black/10 bg-white text-zinc-900",
+                          "rounded-xl px-4 py-3 text-sm",
+                          isDark
+                            ? "border border-white/10 bg-zinc-900 text-zinc-200"
+                            : "border border-black/10 bg-white text-zinc-800",
                         ].join(" ")}
-                      />
-                      <p className={["text-xs", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
-                        Order total: <span className={["font-semibold", isDark ? "text-zinc-200" : "text-zinc-900"].join(" ")}>{peso(total)}</span>
-                      </p>
-                    </div>
-                  </Field>
+                      >
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
+                              GCash Number
+                            </p>
+                            <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                              {GCASH_ACCOUNT_NUMBER}
+                            </p>
+                            {/* Defense-safe placeholder for later:
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard.writeText(GCASH_ACCOUNT_NUMBER)}
+                              className="mt-2 inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-white/10"
+                            >
+                              Copy number
+                            </button>
+                            */}
+                          </div>
+                          <div>
+                            <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
+                              Account Name
+                            </p>
+                            <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                              {GCASH_ACCOUNT_NAME}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </Field>
+
+                    <Field label="GCash down payment amount" isDark={isDark}>
+                      <div className="space-y-2">
+                        <input
+                          type="number"
+                          min={Math.max(1, minimumDownPayment)}
+                          max={Math.max(1, total)}
+                          required={paymentMethod === "gcash"}
+                          value={downPayment}
+                          onChange={(e) => setDownPayment(e.target.value)}
+                          placeholder={`Minimum ${minimumDownPayment}`}
+                          className={[
+                            "h-11 w-full rounded-xl px-3 text-sm outline-none placeholder:text-zinc-500 focus:border-red-400/50",
+                            isDark ? "border border-white/10 bg-zinc-900 text-white" : "border border-black/10 bg-white text-zinc-900",
+                          ].join(" ")}
+                        />
+                        <p className={["text-xs leading-5", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+                          Minimum required down payment:{" "}
+                          <span className={["font-semibold", isDark ? "text-zinc-200" : "text-zinc-900"].join(" ")}>
+                            {peso(minimumDownPayment)}
+                          </span>{" "}
+                          (20% of {peso(total)}).
+                        </p>
+                      </div>
+                    </Field>
+
+                    <Field label="Proof of payment" isDark={isDark}>
+                      <div className="space-y-2">
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          required
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null
+                            setProofFile(file)
+                            setProofPreviewName(file?.name || "")
+                          }}
+                          className={[
+                            "block w-full rounded-xl px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-red-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-red-500",
+                            isDark ? "border border-white/10 bg-zinc-900 text-zinc-200" : "border border-black/10 bg-white text-zinc-800",
+                          ].join(" ")}
+                        />
+                        <p className={["text-xs leading-5", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+                          Upload a screenshot, photo, or PDF of the GCash payment receipt.
+                        </p>
+                        {proofPreviewName && (
+                          <p className={["text-xs", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
+                            Selected file: <span className={["font-semibold", isDark ? "text-zinc-100" : "text-zinc-900"].join(" ")}>{proofPreviewName}</span>
+                          </p>
+                        )}
+                      </div>
+                    </Field>
+                  </>
                 )}
 
-                <Field label="Proof of payment" isDark={isDark}>
-                  <div className="space-y-2">
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      required={paymentMethod === "gcash"}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null
-                        setProofFile(file)
-                        setProofPreviewName(file?.name || "")
-                      }}
-                      className={[
-                        "block w-full rounded-xl px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-red-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-red-500",
-                        isDark ? "border border-white/10 bg-zinc-900 text-zinc-200" : "border border-black/10 bg-white text-zinc-800",
-                      ].join(" ")}
-                    />
-                    <p className={["text-xs leading-5", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
-                      Upload a screenshot/photo (or PDF) of your payment. This is required for
-                      GCash down payment and optional for bank transfer.
-                    </p>
-                    {proofPreviewName && (
-                      <p className={["text-xs", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
-                        Selected file: <span className={["font-semibold", isDark ? "text-zinc-100" : "text-zinc-900"].join(" ")}>{proofPreviewName}</span>
-                      </p>
-                    )}
-                    {paymentMethod === "bank_transfer" && (
+                {paymentMethod === "bank_transfer" && (
+                  <Field label="Bank transfer notice" isDark={isDark}>
+                    <div className="space-y-2">
                       <p className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
                         Bank transfer selected: the manager will contact you to confirm transfer
                         details and payment instructions.
                       </p>
-                    )}
-                  </div>
-                </Field>
+                    </div>
+                  </Field>
+                )}
 
                 <button
                   className="inline-flex w-full items-center justify-center rounded-xl border border-red-500 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-70"
