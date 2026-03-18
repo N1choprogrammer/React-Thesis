@@ -2,5 +2,12 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.93.3",
     "react-router-dom": "^6.30.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.75.0"
+  },
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   }
 }
