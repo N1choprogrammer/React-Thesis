@@ -74,7 +74,7 @@ export default function Login() {
 
     // Admins go to admin (ignore returnTo)
     if (profile?.role === "admin") {
-      navigate("/admin/products", { replace: true })
+      navigate("/admin/dashboard", { replace: true })
       return
     }
 
