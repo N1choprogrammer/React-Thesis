@@ -28,6 +28,7 @@ function doPost(e) {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean)
+    const fromEmail = String(body.from || "").trim()
     const subject = String(body.subject || "").trim()
     const html = String(body.html || "").trim()
     const text = String(body.text || "").trim()
@@ -39,6 +40,7 @@ function doPost(e) {
     const options = {
       htmlBody: html || undefined,
       name: "SPEEGO",
+      replyTo: fromEmail || undefined,
     }
 
     // "noReply" often fails on personal Gmail accounts.

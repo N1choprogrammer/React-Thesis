@@ -1,8 +1,37 @@
+declare const Deno: {
+  env: {
+    get(name: string): string | undefined
+  }
+  serve(handler: (req: Request) => Response | Promise<Response>): void
+}
+
+// @ts-ignore Edge Function runtime uses Deno remote imports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+}
+
+type ProviderSuccessResult = {
+  ok: true
+  provider: string
+  providerMessageId?: string
+}
+
+type ProviderErrorResult = {
+  ok: false
+  provider: string
+  errorText: string
+}
+
+type ProviderResult = ProviderSuccessResult | ProviderErrorResult
+
+type GmailWebhookPayload = {
+  ok?: boolean
+  id?: string
+  messageId?: string
+  error?: string
 }
 
 function formatPeso(value: number | null | undefined) {
@@ -15,8 +44,9 @@ function buildEmailContent(params: {
   orderId: string
   totalAmount: number
   siteUrl: string
+  supportEmail: string
 }) {
-  const { status, customerName, orderId, totalAmount, siteUrl } = params
+  const { status, customerName, orderId, totalAmount, siteUrl, supportEmail } = params
   const statusLabel = status === "confirmed" ? "confirmed" : "cancelled"
   const subject =
     status === "confirmed"
@@ -36,6 +66,7 @@ function buildEmailContent(params: {
           ? `<p style="margin: 0 0 20px;">We are now preparing your order. You can track updates in your account.</p>`
           : `<p style="margin: 0 0 20px;">If you have questions about this cancellation, please reply to this email or contact the SPEEGO team.</p>`
       }
+      <p style="margin: 0 0 20px; color: #52525b;">For questions or concerns, you can reply directly to this email or contact us at <strong>${supportEmail}</strong>.</p>
       <a href="${siteUrl}/my-orders" style="display:inline-block; background:#dc2626; color:white; text-decoration:none; padding:10px 14px; border-radius:8px; font-weight:600;">
         View My Orders
       </a>
@@ -44,8 +75,8 @@ function buildEmailContent(params: {
 
   const text =
     status === "confirmed"
-      ? `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is confirmed. Total: ${formatPeso(totalAmount)}. Track updates: ${siteUrl}/my-orders`
-      : `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is cancelled. Total: ${formatPeso(totalAmount)}. View details: ${siteUrl}/my-orders`
+      ? `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is confirmed. Total: ${formatPeso(totalAmount)}. Track updates: ${siteUrl}/my-orders. For questions, reply to this email or contact ${supportEmail}.`
+      : `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is cancelled. Total: ${formatPeso(totalAmount)}. View details: ${siteUrl}/my-orders. For questions, reply to this email or contact ${supportEmail}.`
 
   return { subject, html, text }
 }
@@ -113,15 +144,15 @@ async function sendWithResend(params: {
 
   if (!resendResponse.ok) {
     const errText = await resendResponse.text()
-    return { ok: false, errorText: errText, provider: "resend" }
+    return { ok: false, errorText: errText, provider: "resend" } satisfies ProviderErrorResult
   }
 
-  const payload = await resendResponse.json().catch(() => ({}))
+  const payload = (await resendResponse.json().catch(() => ({}))) as { id?: string }
   return {
     ok: true,
     providerMessageId: String(payload?.id || ""),
     provider: "resend",
-  }
+  } satisfies ProviderSuccessResult
 }
 
 async function sendWithGmailWebhook(params: {
@@ -155,14 +186,14 @@ async function sendWithGmailWebhook(params: {
     }),
   })
 
-  const payload = await response.json().catch(() => null)
+  const payload = (await response.json().catch(() => null)) as GmailWebhookPayload | null
 
   if (!response.ok) {
     const errText =
       payload && typeof payload === "object"
         ? JSON.stringify(payload)
         : await response.text().catch(() => "Unknown webhook error")
-    return { ok: false, errorText: errText, provider: "gmail" }
+    return { ok: false, errorText: errText, provider: "gmail" } satisfies ProviderErrorResult
   }
 
   if (!payload || payload.ok !== true) {
@@ -173,17 +204,17 @@ async function sendWithGmailWebhook(params: {
           ? JSON.stringify(payload)
           : "Gmail webhook did not return ok=true",
       provider: "gmail",
-    }
+    } satisfies ProviderErrorResult
   }
 
   return {
     ok: true,
     providerMessageId: String(payload?.id || payload?.messageId || ""),
     provider: "gmail",
-  }
+  } satisfies ProviderSuccessResult
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
   }
@@ -241,7 +272,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const body = await req.json()
+    const body = (await req.json()) as { order_id?: string; status?: string }
     const orderId = String(body?.order_id || "").trim()
     const status = String(body?.status || "").trim().toLowerCase()
 
@@ -271,11 +302,10 @@ Deno.serve(async (req) => {
       orderId: order.id,
       totalAmount: Number(order.total_amount || 0),
       siteUrl,
+      supportEmail: fromEmail || "SPEEGO support",
     })
 
-    let providerResult:
-      | { ok: true; provider: string; providerMessageId?: string }
-      | { ok: false; provider: string; errorText: string }
+    let providerResult: ProviderResult
 
     if (emailProvider === "resend") {
       if (!resendApiKey || !fromEmail) {

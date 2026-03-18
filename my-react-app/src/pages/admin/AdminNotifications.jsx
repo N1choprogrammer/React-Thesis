@@ -155,8 +155,6 @@ export default function AdminNotifications() {
                 <th className="px-4 py-3 font-semibold">Status</th>
                 <th className="px-4 py-3 font-semibold">Recipient</th>
                 <th className="px-4 py-3 font-semibold">Result</th>
-                <th className="px-4 py-3 font-semibold">Provider</th>
-                <th className="px-4 py-3 font-semibold">Message ID</th>
                 <th className="px-4 py-3 font-semibold">Items (Product / Color)</th>
               </tr>
             </thead>
@@ -189,8 +187,6 @@ export default function AdminNotifications() {
                       {row.success ? "Success" : "Failed"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-zinc-300">{row.provider || "-"}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-zinc-400">{row.provider_message_id || "-"}</td>
                   <td className="px-4 py-3 text-zinc-300">
                     {items.length === 0 ? (
                       <span className="text-zinc-500">-</span>
