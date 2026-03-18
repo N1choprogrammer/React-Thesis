@@ -13,14 +13,8 @@ function validateSignupPassword(password) {
   if (!/[a-z]/.test(password)) {
     return "Password must include at least one lowercase letter."
   }
-  if (!/[A-Z]/.test(password)) {
-    return "Password must include at least one uppercase letter."
-  }
   if (!/[0-9]/.test(password)) {
     return "Password must include at least one number."
-  }
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    return "Password must include at least one special character."
   }
   return ""
 }
@@ -500,7 +494,7 @@ export default function Login() {
                   </div>
                   {mode === "signup" && (
                     <p className={["text-xs", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
-                      Use at least 8 characters with uppercase, lowercase, number, and special character.
+                      Use at least 8 characters with at least one lowercase letter and one number.
                     </p>
                   )}
                 </div>
