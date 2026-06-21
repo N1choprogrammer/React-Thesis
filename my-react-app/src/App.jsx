@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom"
+import { useEffect } from "react"
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom"
 import NavBar from "./components/NavBar"
 import Home from "./pages/Home"
 import Shop from "./pages/Shop"
@@ -7,19 +8,48 @@ import About from "./pages/About"
 import Contact from "./pages/Contact"
 import AdminRoute from "./components/AdminRoute"
 import Login from "./pages/Login"
+import ResetPassword from "./pages/ResetPassword"
 import AdminLayout from "./pages/admin/AdminLayout"
 import OrderConfirmation from "./pages/OrderConfirmation"
 import ChatAssistant from "./components/ChatAssistant"
 import MyOrders from "./pages/MyOrders"
 import Profile from "./pages/Profile"
 import { useTheme } from "./context/ThemeContext"
+import { supabase } from "./services/supabaseClient"
+
+function hasPasswordRecoveryParams() {
+  const searchParams = new URLSearchParams(window.location.search)
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+
+  return searchParams.get("type") === "recovery" || hashParams.get("type") === "recovery"
+}
 
 function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { isDark } = useTheme()
 
-  // hide customer navbar/chat on login and admin routes
-  const hideNav = location.pathname === "/login" || location.pathname.startsWith("/admin")
+  useEffect(() => {
+    if (hasPasswordRecoveryParams() && location.pathname !== "/reset-password") {
+      navigate("/reset-password", { replace: true })
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY" && location.pathname !== "/reset-password") {
+        navigate("/reset-password", { replace: true })
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [location.pathname, navigate])
+
+  // hide customer navbar/chat on auth and admin routes
+  const authPaths = ["/login", "/reset-password"]
+  const hideNav = authPaths.includes(location.pathname) || location.pathname.startsWith("/admin")
 
   return (
     <div
@@ -44,6 +74,7 @@ function Layout() {
 
           {/* Auth */}
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Customer order confirmation */}
           <Route path="/order-confirmation" element={<OrderConfirmation />} />

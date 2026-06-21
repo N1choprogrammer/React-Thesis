@@ -35,6 +35,8 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const searchParams = new URLSearchParams(location.search)
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ""))
+  const isPasswordRecovery = searchParams.get("type") === "recovery" || hashParams.get("type") === "recovery"
 
   const handleBack = () => {
     const returnTo = location.state?.returnTo
@@ -85,6 +87,11 @@ export default function Login() {
   // auto-redirect if already logged in
   useEffect(() => {
     const checkSession = async () => {
+      if (isPasswordRecovery) {
+        navigate("/reset-password", { replace: true })
+        return
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession()
@@ -96,7 +103,7 @@ export default function Login() {
 
     checkSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isPasswordRecovery])
 
   const handleModeChange = (nextMode) => {
     if (nextMode === mode) return
@@ -203,33 +210,9 @@ export default function Login() {
     }
   }
 
-  // Forgot password
-  const handlePasswordReset = async () => {
+  const handleForgotPassword = () => {
     resetMessages()
-
-    if (!email) {
-      setError("Please type your email above so we know where to send the reset link.")
-      return
-    }
-
-    setLoading(true)
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + "/login",
-      })
-
-      if (error) {
-        console.error("Reset password error:", error)
-        setError(error.message)
-      } else {
-        setSuccess("If that email is registered, a reset link has been sent.")
-      }
-    } catch (err) {
-      console.error("Reset password error:", err)
-      setError("Something went wrong while sending the reset email.")
-    } finally {
-      setLoading(false)
-    }
+    navigate("/reset-password")
   }
 
   const panelClass =
@@ -504,7 +487,7 @@ export default function Login() {
                   <div className="flex justify-end">
                     <button
                       type="button"
-                      onClick={handlePasswordReset}
+                      onClick={handleForgotPassword}
                       disabled={loading}
                       className={["border-0 bg-transparent p-0 text-sm font-medium transition disabled:opacity-60", isDark ? "text-red-300 hover:text-red-200" : "text-red-700 hover:text-red-600"].join(" ")}
                     >

@@ -16,6 +16,23 @@ export default function Profile() {
   const [fullName, setFullName] = useState("")
   const [phone, setPhone] = useState("")
   const [address, setAddress] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmNewPassword, setConfirmNewPassword] = useState("")
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false)
+
+  const validatePassword = (password) => {
+    if (password.length < 8) {
+      return "Password must be at least 8 characters."
+    }
+    if (!/[a-z]/.test(password)) {
+      return "Password must include at least one lowercase letter."
+    }
+    if (!/[0-9]/.test(password)) {
+      return "Password must include at least one number."
+    }
+    return ""
+  }
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -100,6 +117,51 @@ export default function Profile() {
     }
 
     setSuccessMsg("Profile saved successfully.")
+    setSaving(false)
+  }
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setErrorMsg(null)
+    setSuccessMsg(null)
+
+    const passwordError = validatePassword(newPassword)
+    if (passwordError) {
+      setErrorMsg(passwordError)
+      setSaving(false)
+      return
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setErrorMsg("Passwords do not match.")
+      setSaving(false)
+      return
+    }
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      setErrorMsg("You need to be logged in.")
+      setSaving(false)
+      return
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+    if (error) {
+      console.error("Change password error:", error)
+      setErrorMsg(error.message || "Failed to change password.")
+      setSaving(false)
+      return
+    }
+
+    setNewPassword("")
+    setConfirmNewPassword("")
+    setSuccessMsg("Password changed successfully.")
     setSaving(false)
   }
 
@@ -221,6 +283,86 @@ export default function Profile() {
               className="rounded-xl border border-red-500 bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save profile"}
+            </button>
+          </div>
+        </form>
+
+        <form
+          onSubmit={handlePasswordChange}
+          className={[
+            "mt-6 space-y-5 rounded-3xl p-5 sm:p-6",
+            isDark
+              ? "border border-white/10 bg-zinc-950/85 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+              : "border border-black/10 bg-white/90 shadow-[0_14px_40px_rgba(17,24,39,0.10)]",
+          ].join(" ")}
+        >
+          <div>
+            <h3 className={["text-lg font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Change password</h3>
+            <p className={["mt-1 text-sm", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+              Update your password directly from your account.
+            </p>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="profile-new-password" className={["block text-sm font-medium", isDark ? "text-zinc-200" : "text-zinc-800"].join(" ")}>
+                New password
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="profile-new-password"
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Create a password"
+                  required
+                  className={inputClass}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((value) => !value)}
+                  className={["shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition", isDark ? "border border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10" : "border border-black/10 bg-black/5 text-zinc-800 hover:bg-black/10"].join(" ")}
+                >
+                  {showNewPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="profile-confirm-password" className={["block text-sm font-medium", isDark ? "text-zinc-200" : "text-zinc-800"].join(" ")}>
+                Confirm new password
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="profile-confirm-password"
+                  type={showConfirmNewPassword ? "text" : "password"}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Re-enter your password"
+                  required
+                  className={inputClass}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmNewPassword((value) => !value)}
+                  className={["shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition", isDark ? "border border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10" : "border border-black/10 bg-black/5 text-zinc-800 hover:bg-black/10"].join(" ")}
+                >
+                  {showConfirmNewPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className={["flex flex-wrap items-center justify-between gap-3 pt-4", isDark ? "border-t border-white/10" : "border-t border-black/10"].join(" ")}>
+            <p className={["text-xs", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+              Use at least 8 characters with one lowercase letter and one number.
+            </p>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl border border-red-500 bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? "Updating..." : "Change password"}
             </button>
           </div>
         </form>
