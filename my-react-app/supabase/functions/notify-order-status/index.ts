@@ -239,7 +239,7 @@ Deno.serve(async (req: Request) => {
     const gmailWebhookUrl = Deno.env.get("GMAIL_WEBHOOK_URL")
     const gmailWebhookSecret = Deno.env.get("GMAIL_WEBHOOK_SECRET")
     const fromEmail = Deno.env.get("NOTIFY_FROM_EMAIL")
-    const siteUrl = Deno.env.get("SITE_URL") || "http://localhost:5173"
+    const siteUrl = Deno.env.get("SITE_URL") || "https://speego-ebikes-web.vercel.app"
 
     if (!supabaseUrl || !serviceRole) {
       return new Response(JSON.stringify({ error: "Supabase env not configured." }), {
