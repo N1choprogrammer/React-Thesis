@@ -29,11 +29,51 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
   const [hasActiveSession, setHasActiveSession] = useState(false)
+  const [isRecoverySession, setIsRecoverySession] = useState(false)
 
   useEffect(() => {
     let mounted = true
 
+    const recoverSessionFromUrl = async () => {
+      const searchParams = new URLSearchParams(window.location.search)
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+      const code = searchParams.get("code")
+      const accessToken = hashParams.get("access_token")
+      const refreshToken = hashParams.get("refresh_token")
+      const isRecovery =
+        searchParams.get("type") === "recovery" ||
+        hashParams.get("type") === "recovery" ||
+        Boolean(code || accessToken)
+
+      if (isRecovery && mounted) {
+        setIsRecoverySession(true)
+      }
+
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        if (exchangeError && mounted) {
+          console.error("Recovery code exchange error:", exchangeError)
+          setError(exchangeError.message)
+        }
+      } else if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        if (sessionError && mounted) {
+          console.error("Recovery session error:", sessionError)
+          setError(sessionError.message)
+        }
+      }
+
+      if (isRecovery) {
+        window.history.replaceState(null, "", "/reset-password")
+      }
+    }
+
     const checkSession = async () => {
+      await recoverSessionFromUrl()
+
       const {
         data: { session },
       } = await supabase.auth.getSession()
@@ -49,6 +89,9 @@ export default function ResetPassword() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return
+      if (event === "PASSWORD_RECOVERY") {
+        setIsRecoverySession(true)
+      }
       setHasActiveSession(Boolean(session))
       setCheckingSession(false)
     })
@@ -154,14 +197,16 @@ export default function ResetPassword() {
 
           <h2 className={["text-2xl font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Create a new password</h2>
           <p className={["mt-2 text-sm leading-6", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
-            Change your password directly while you are logged in to your SPEEGO account.
+            {isRecoverySession
+              ? "Your email has been verified. Create a new password to recover your account."
+              : "Change your password directly while you are logged in to your SPEEGO account."}
           </p>
 
           {error && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">{error}</div>}
           {success && <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{success}</div>}
           {!checkingSession && !hasActiveSession && !success && (
             <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-              Please log in first, then return here to change your password.
+              This reset link is missing or expired. Request a new password reset email.
             </div>
           )}
 
@@ -217,10 +262,10 @@ export default function ResetPassword() {
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => navigate(success || !hasActiveSession ? "/login" : "/profile")}
+              onClick={() => navigate(success ? "/login" : hasActiveSession ? "/profile" : "/forgot-password")}
               className={["border-0 bg-transparent p-0 text-sm font-semibold transition", isDark ? "text-red-300 hover:text-red-200" : "text-red-700 hover:text-red-600"].join(" ")}
             >
-              {success || !hasActiveSession ? "Back to login" : "Back to profile"}
+              {success ? "Back to login" : hasActiveSession ? "Back to profile" : "Request a new link"}
             </button>
             <button
               type="button"

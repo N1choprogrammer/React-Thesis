@@ -83,6 +83,8 @@ export const supabase = (!supabaseUrl || !supabaseAnonKey)
         signInWithOAuth: async () => ({ data: null, error: missingConfigError() }),
         resetPasswordForEmail: async () => ({ error: missingConfigError() }),
         updateUser: async () => ({ data: null, error: missingConfigError() }),
+        setSession: async () => ({ data: null, error: missingConfigError() }),
+        exchangeCodeForSession: async () => ({ data: null, error: missingConfigError() }),
       },
       from: () => createMissingQueryBuilder([]),
       storage: {

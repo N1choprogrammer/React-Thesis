@@ -8,6 +8,7 @@ import About from "./pages/About"
 import Contact from "./pages/Contact"
 import AdminRoute from "./components/AdminRoute"
 import Login from "./pages/Login"
+import ForgotPassword from "./pages/ForgotPassword"
 import ResetPassword from "./pages/ResetPassword"
 import AdminLayout from "./pages/admin/AdminLayout"
 import OrderConfirmation from "./pages/OrderConfirmation"
@@ -21,7 +22,11 @@ function hasPasswordRecoveryParams() {
   const searchParams = new URLSearchParams(window.location.search)
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
 
-  return searchParams.get("type") === "recovery" || hashParams.get("type") === "recovery"
+  return (
+    searchParams.get("type") === "recovery" ||
+    hashParams.get("type") === "recovery" ||
+    hashParams.has("access_token")
+  )
 }
 
 function Layout() {
@@ -31,7 +36,7 @@ function Layout() {
 
   useEffect(() => {
     if (hasPasswordRecoveryParams() && location.pathname !== "/reset-password") {
-      navigate("/reset-password", { replace: true })
+      navigate(`/reset-password${window.location.search}${window.location.hash}`, { replace: true })
     }
 
     const {
@@ -48,7 +53,7 @@ function Layout() {
   }, [location.pathname, navigate])
 
   // hide customer navbar/chat on auth and admin routes
-  const authPaths = ["/login", "/reset-password"]
+  const authPaths = ["/login", "/forgot-password", "/reset-password"]
   const hideNav = authPaths.includes(location.pathname) || location.pathname.startsWith("/admin")
 
   return (
@@ -74,6 +79,7 @@ function Layout() {
 
           {/* Auth */}
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Customer order confirmation */}

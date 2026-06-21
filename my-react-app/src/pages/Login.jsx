@@ -212,7 +212,7 @@ export default function Login() {
 
   const handleForgotPassword = () => {
     resetMessages()
-    navigate("/reset-password")
+    navigate("/forgot-password", { state: { email } })
   }
 
   const panelClass =
