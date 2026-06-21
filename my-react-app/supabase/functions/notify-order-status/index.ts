@@ -38,6 +38,10 @@ function formatPeso(value: number | null | undefined) {
   return `PHP ${Number(value || 0).toLocaleString()}`
 }
 
+function joinUrl(baseUrl: string, path: string) {
+  return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`
+}
+
 function buildEmailContent(params: {
   status: string
   customerName: string
@@ -47,6 +51,7 @@ function buildEmailContent(params: {
   supportEmail: string
 }) {
   const { status, customerName, orderId, totalAmount, siteUrl, supportEmail } = params
+  const ordersUrl = joinUrl(siteUrl, "/my-orders")
   const statusLabel =
     status === "confirmed" ? "confirmed" : status === "completed" ? "completed" : "cancelled"
   const subject =
@@ -72,7 +77,7 @@ function buildEmailContent(params: {
           : `<p style="margin: 0 0 20px;">If you have questions about this cancellation, please reply to this email or contact the SPEEGO team.</p>`
       }
       <p style="margin: 0 0 20px; color: #52525b;">For questions or concerns, you can reply directly to this email or contact us at <strong>${supportEmail}</strong>.</p>
-      <a href="${siteUrl}/my-orders" style="display:inline-block; background:#dc2626; color:white; text-decoration:none; padding:10px 14px; border-radius:8px; font-weight:600;">
+      <a href="${ordersUrl}" style="display:inline-block; background:#dc2626; color:white; text-decoration:none; padding:10px 14px; border-radius:8px; font-weight:600;">
         View My Orders
       </a>
     </div>
@@ -80,10 +85,10 @@ function buildEmailContent(params: {
 
   const text =
     status === "confirmed"
-      ? `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is confirmed. Total: ${formatPeso(totalAmount)}. Track updates: ${siteUrl}/my-orders. For questions, reply to this email or contact ${supportEmail}.`
+      ? `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is confirmed. Total: ${formatPeso(totalAmount)}. Track updates: ${ordersUrl}. For questions, reply to this email or contact ${supportEmail}.`
       : status === "completed"
       ? `Hi ${customerName || "Customer"}, thank you for choosing SPEEGO E-Bikes. Your order ${orderId} has been completed. Total: ${formatPeso(totalAmount)}. We appreciate your trust in our products. For questions, reply to this email or contact ${supportEmail}.`
-      : `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is cancelled. Total: ${formatPeso(totalAmount)}. View details: ${siteUrl}/my-orders. For questions, reply to this email or contact ${supportEmail}.`
+      : `Hi ${customerName || "Customer"}, your SPEEGO order ${orderId} is cancelled. Total: ${formatPeso(totalAmount)}. View details: ${ordersUrl}. For questions, reply to this email or contact ${supportEmail}.`
 
   return { subject, html, text }
 }

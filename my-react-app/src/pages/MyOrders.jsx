@@ -236,7 +236,7 @@ export default function MyOrders() {
               <div className="mt-3">
                 <button
                   type="button"
-                  onClick={() => navigate("/login")}
+                  onClick={() => navigate("/login?next=/my-orders", { state: { returnTo: "/my-orders" } })}
                   className="rounded-xl border border-red-500 bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
                 >
                   Go to login
