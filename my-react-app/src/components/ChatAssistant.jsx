@@ -38,6 +38,22 @@ function getAvailableColors(product) {
     .map((variant) => variant.color)
 }
 
+function getProductImagePath(product, color = null) {
+  const variants = Array.isArray(product?.product_color_stock) ? product.product_color_stock : []
+  const colorVariant = color ? getColorVariant(product, color) : null
+  return colorVariant?.image_path || product?.image_path || variants.find((variant) => variant?.image_path)?.image_path || null
+}
+
+function getProductImage(product, color = null) {
+  const path = getProductImagePath(product, color)
+  if (!path) return null
+
+  return {
+    src: supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl,
+    alt: `${product?.name || "E-bike"}${color ? ` in ${color}` : ""}`,
+  }
+}
+
 function getColorAliases(color) {
   const normalized = normalizeText(color)
   const aliasMap = {
@@ -444,6 +460,7 @@ function getCommonQuestionReply(message, products, matchedProduct) {
     return {
       from: "bot",
       text: `${matchedProduct.name} is ${stock > 0 ? "available" : "currently out of stock"}. Price: ${formatPeso(matchedProduct.price)}. ${colors.length ? `Available colors: ${colors.join(", ")}.` : "No color variants are listed right now."} Down payment: ${formatPeso(getDownPayment(matchedProduct.price))}. Estimated 6-month payment: ${formatPeso(getMonthlyPayment(matchedProduct.price))} per month.`,
+      image: getProductImage(matchedProduct, requestedColorVariant?.color || null),
     }
   }
 
@@ -576,10 +593,12 @@ What's most important to you?`,
           name,
           price,
           stock,
+          image_path,
           is_active,
           product_color_stock (
             color,
-            stock
+            stock,
+            image_path
           )
         `)
         .eq("is_active", true)
@@ -596,6 +615,27 @@ What's most important to you?`,
             name,
             price,
             stock,
+            image_path,
+            product_color_stock (
+              color,
+              stock,
+              image_path
+            )
+          `)
+        data = fallback.data
+        error = fallback.error
+      }
+
+      if (error && String(error.message || "").toLowerCase().includes("image_path")) {
+        const fallback = await supabase
+          .from("products")
+          .select(`
+            id,
+            short_id,
+            name,
+            price,
+            stock,
+            is_active,
             product_color_stock (
               color,
               stock
@@ -855,6 +895,7 @@ What's most important to you?`,
           botReply = {
             from: "bot",
             text: `${incomingProductMatch.name} is ${stock > 0 ? "available" : "currently out of stock"}. ${availableColors.length > 0 ? `Available colors: ${availableColors.join(", ")}.` : "No color variants are listed right now."} Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}.`,
+            image: getProductImage(incomingProductMatch),
           }
         } else if (isProductPreferenceMessage(userMsg) && incomingProductMatch?.id) {
           const similarPreferenceProducts = getSimilarPreferenceProducts(catalogProducts, userMsg, incomingProductMatch)
@@ -930,6 +971,7 @@ What's most important to you?`,
             botReply = {
               from: "bot",
               text: `${matchedProduct.name} is ${stock > 0 ? "available" : "currently out of stock"}. ${availableColors.length > 0 ? `Available colors: ${availableColors.join(", ")}.` : "No color variants are listed right now."} Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. Tell me the color you want, or I can recommend one if it is not available.`,
+              image: getProductImage(matchedProduct),
             }
           }
         } else if (nextSession.step === "awaiting_color") {
@@ -968,6 +1010,7 @@ What's most important to you?`,
               botReply = {
                 from: "bot",
                 text: `${product.name} is ${stock > 0 ? "available" : "currently out of stock"}. Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. You can add this item to your cart when you are ready.`,
+                image: getProductImage(product),
                 actions: [{ label: "Add to cart", onClick: () => handleAddToCartFromBot(product.id, nextSession.color) }],
               }
             } else if (requestedColorIsAvailable) {
@@ -978,6 +1021,7 @@ What's most important to you?`,
               botReply = {
                 from: "bot",
                 text: `${product.name} in ${requestedColor} is available. ${requestedColorStock > 0 ? `${requestedColor} has ${requestedColorStock} left in stock.` : `${requestedColor} is out of stock.`} Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. You can add this item to your cart when you are ready.`,
+                image: getProductImage(product, requestedColor),
                 actions: [{ label: "Add to cart", onClick: () => handleAddToCartFromBot(product.id, requestedColor) }],
               }
             } else if (requestedColor) {
@@ -995,6 +1039,7 @@ What's most important to you?`,
               botReply = {
                 from: "bot",
                 text: `${product.name} is ${stock > 0 ? "available" : "currently out of stock"}. Available colors: ${availableColors.join(", ")}. Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. Please tell me which color you want before I add it to your cart.`,
+                image: getProductImage(product),
               }
             }
           }
@@ -1115,8 +1160,24 @@ What's most important to you?`,
     const text = String(msg?.text || "")
     const links = Array.isArray(msg?.links) ? msg.links : []
     const actions = Array.isArray(msg?.actions) ? msg.actions : []
+    const image = msg?.image?.src ? msg.image : null
 
-    if (msg?.from !== "bot" || (links.length === 0 && actions.length === 0)) {
+    const imageNode = image ? (
+      <img
+        src={image.src}
+        alt={image.alt || "E-bike"}
+        style={{
+          width: "100%",
+          maxHeight: "180px",
+          objectFit: "contain",
+          background: "rgba(255,255,255,0.04)",
+          borderRadius: "12px",
+          border: "1px solid var(--chat-chip-border)",
+        }}
+      />
+    ) : null
+
+    if (msg?.from !== "bot" || (links.length === 0 && actions.length === 0 && !imageNode)) {
       return <span style={{ whiteSpace: "pre-wrap" }}>{text}</span>
     }
 
@@ -1160,6 +1221,7 @@ What's most important to you?`,
     if (parts.length === 0) {
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+          {imageNode}
           <span style={{ whiteSpace: "pre-wrap" }}>{text}</span>
           {actions.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
@@ -1193,6 +1255,7 @@ What's most important to you?`,
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+        {imageNode}
         <span style={{ whiteSpace: "pre-wrap" }}>{parts}</span>
         {actions.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
