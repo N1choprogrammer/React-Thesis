@@ -159,7 +159,7 @@ export default function Shop() {
             <div className="max-w-3xl">
               <div className={["inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]", isDark ? "border border-white/10 bg-white/5 text-zinc-300" : "border border-black/10 bg-black/[0.03] text-zinc-600"].join(" ")}>
                 <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                SPEEGO Shop
+                SPEEGO TALAVERA SHOP
               </div>
               <h2 className={["mt-4 text-3xl font-black tracking-tight sm:text-4xl", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
                 Choose your e-bike, color, and quantity

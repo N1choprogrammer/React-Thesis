@@ -84,10 +84,10 @@ export default function Contact() {
             "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]",
             isDark ? "border border-white/10 bg-white/5 text-zinc-300" : "border border-black/10 bg-black/[0.03] text-zinc-600",
           ].join(" ")}>
-            Contact Speego
+            Contact Speego Talavera
           </div>
           <h1 className={["mt-3 text-3xl font-bold tracking-tight sm:text-4xl", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
-            Contact SPEEGO
+            Contact SPEEGO Talavera
           </h1>
           <p className={["mt-3 max-w-4xl text-sm leading-7 sm:text-base", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
             Got questions about our electric bikes, pricing, or system features? You can reach us
@@ -134,7 +134,7 @@ export default function Contact() {
             <h2 className={["text-xl font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Send us a message</h2>
 
             {submitted ? (
-              <div className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+              <div className={["mt-4 rounded-2xl border p-4 text-sm", isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800"].join(" ")}>
                 Thank you for reaching out. Your message has been recorded for demo purposes. In a
                 live system, this would be sent to the SPEEGO team.
               </div>

@@ -44,13 +44,13 @@ export default function About() {
             "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]",
             isDark ? "border border-white/10 bg-white/5 text-zinc-300" : "border border-black/10 bg-black/[0.03] text-zinc-600 ",
           ].join(" ")}>
-            About Speego
+            About Speego Talavera
           </div>
           <h1 className={["mt-3 text-3xl font-bold tracking-tight sm:text-4xl", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
-            About SPEEGO
+            About SPEEGO Talavera
           </h1>
           <p className={["mt-3 max-w-4xl text-sm leading-7 sm:text-base", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
-            At SpeeGo, we are passionate about revolutionizing the way you travel. Our electric
+            At SpeeGo Talavera, we are passionate about revolutionizing the way you travel. Our electric
             bikes are designed to provide a seamless blend of speed, style, and sustainability.
             Whether you&apos;re commuting through the city or exploring scenic routes, our e-bikes
             offer an exhilarating ride that is both eco-friendly and efficient.
@@ -75,7 +75,7 @@ export default function About() {
                   people move with comfort, safety, and personality.
                 </p>
                 <p>
-                  SPEEGO specializes in electric bikes designed for real Philippine conditions:
+                  SPEEGO Talavera specializes in electric bikes designed for real Philippine conditions:
                   traffic, narrow streets, and long daily commutes. Our goal is to help students,
                   workers, and small businesses save on fuel and time while enjoying a cleaner and
                   quieter ride.

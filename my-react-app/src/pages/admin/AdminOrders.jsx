@@ -36,6 +36,10 @@ function formatPeso(value) {
   return `PHP ${Number(value || 0).toLocaleString()}`
 }
 
+function isImageProof(path) {
+  return /\.(avif|gif|heic|heif|jpe?g|png|webp)$/i.test(String(path || ""))
+}
+
 export default function AdminOrders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -86,9 +90,32 @@ export default function AdminOrders() {
         return
       }
 
+      let proofUrls = {}
+      const proofPaths = ordersData.map((o) => o.payment_proof_path).filter(Boolean)
+
+      if (proofPaths.length > 0) {
+        const proofResults = await Promise.all(
+          proofPaths.map(async (path) => {
+            const { data, error } = await supabase.storage
+              .from("payment-proofs")
+              .createSignedUrl(path, 60 * 60)
+
+            if (error) {
+              console.error("Error loading payment proof:", error)
+              return [path, null]
+            }
+
+            return [path, data?.signedUrl || null]
+          })
+        )
+
+        proofUrls = Object.fromEntries(proofResults)
+      }
+
       const ordersWithItems = ordersData.map((order) => ({
         ...order,
         order_items: itemsData.filter((it) => it.order_id === order.id),
+        payment_proof_url: order.payment_proof_path ? proofUrls[order.payment_proof_path] || null : null,
       }))
 
       setOrders(ordersWithItems)
@@ -160,7 +187,7 @@ export default function AdminOrders() {
             payload?.error ||
             payload?.message ||
             (payload ? JSON.stringify(payload) : "")
-        } catch (_err) {
+        } catch {
           // no-op
         }
         setNotifyBanner({
@@ -427,7 +454,49 @@ export default function AdminOrders() {
                   </div>
 
                   {isExpanded && (
-                    <div className="border-t border-white/10 p-4 sm:p-5">
+                    <div className="space-y-4 border-t border-white/10 p-4 sm:p-5">
+                      <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                              Payment proof
+                            </p>
+                            <p className="mt-1 text-sm text-zinc-300">
+                              {order.payment_proof_path
+                                ? "Verify this receipt before confirming payment."
+                                : "No payment proof uploaded for this order."}
+                            </p>
+                          </div>
+
+                          {order.payment_proof_url && (
+                            <a
+                              href={order.payment_proof_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center justify-center rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20"
+                            >
+                              Open proof
+                            </a>
+                          )}
+                        </div>
+
+                        {order.payment_proof_path && order.payment_proof_url && isImageProof(order.payment_proof_path) && (
+                          <a href={order.payment_proof_url} target="_blank" rel="noreferrer" className="mt-3 block">
+                            <img
+                              src={order.payment_proof_url}
+                              alt={`Payment proof for order ${order.id}`}
+                              className="max-h-96 w-full rounded-lg border border-white/10 object-contain"
+                            />
+                          </a>
+                        )}
+
+                        {order.payment_proof_path && !order.payment_proof_url && (
+                          <p className="mt-3 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                            Payment proof was uploaded, but the preview link could not be created.
+                          </p>
+                        )}
+                      </div>
+
                       {items.length === 0 ? (
                         <p className="text-sm text-zinc-300">No items recorded for this order.</p>
                       ) : (

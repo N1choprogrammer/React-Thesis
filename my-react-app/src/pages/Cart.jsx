@@ -9,9 +9,26 @@ const GCASH_ACCOUNT_NAME =
   import.meta.env.VITE_GCASH_ACCOUNT_NAME || "SPEEGO E-BIKES"
 const GCASH_ACCOUNT_NUMBER =
   import.meta.env.VITE_GCASH_ACCOUNT_NUMBER || "09XX XXX XXXX"
+const BANK_ACCOUNT_NAME =
+  import.meta.env.VITE_BANK_ACCOUNT_NAME || "SPEEGO E-BIKES"
+const BANK_ACCOUNT_NUMBER =
+  import.meta.env.VITE_BANK_ACCOUNT_NUMBER || "0000-0000-0000"
+const BANK_NAME = import.meta.env.VITE_BANK_NAME || "BDO"
+const EXTRA_MONTH_INTEREST_RATE = 0.0125
+const MAX_PAYMENT_PROOF_BYTES = 10 * 1024 * 1024
+const PAYMENT_PLAN_OPTIONS = [
+  { value: "6_months", label: "6 months", months: 6, note: "Promo: no interest" },
+  { value: "9_months", label: "9 months", months: 9, note: "Interest added for 3 extra months" },
+  { value: "12_months", label: "1 year", months: 12, note: "Interest added for 6 extra months" },
+]
 
 function peso(value) {
   return `PHP ${Number(value || 0).toLocaleString()}`
+}
+
+function isValidPaymentProofFile(file) {
+  if (!file) return true
+  return file.type === "application/pdf" || file.type.startsWith("image/")
 }
 
 function Field({ label, children, isDark }) {
@@ -41,16 +58,24 @@ export default function Cart() {
   const [customerEmail, setCustomerEmail] = useState("")
   const [customerAddress, setCustomerAddress] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("gcash")
+  const [paymentPlan, setPaymentPlan] = useState("6_months")
   const [downPayment, setDownPayment] = useState("")
   const [proofFile, setProofFile] = useState(null)
   const [proofPreviewName, setProofPreviewName] = useState("")
   const [placingOrder, setPlacingOrder] = useState(false)
   const [orderSuccessId, setOrderSuccessId] = useState(null)
   const [orderError, setOrderError] = useState(null)
+  const [cartNotice, setCartNotice] = useState(null)
   const showCartError = (message) => {
     setOrderError(message)
     setTimeout(() => {
       setOrderError((current) => (current === message ? null : current))
+    }, 3200)
+  }
+  const showCartNotice = (message) => {
+    setCartNotice(message)
+    setTimeout(() => {
+      setCartNotice((current) => (current === message ? null : current))
     }, 3200)
   }
 
@@ -61,6 +86,26 @@ export default function Cart() {
   const parsedDownPayment = Number(String(downPayment || "").replace(/,/g, ""))
   const validDownPayment = Number.isFinite(parsedDownPayment) && parsedDownPayment > 0
   const minimumDownPayment = Math.ceil(total * 0.2)
+  const paymentPlanDetails = useMemo(() => {
+    const selectedPlan = PAYMENT_PLAN_OPTIONS.find((plan) => plan.value === paymentPlan) || PAYMENT_PLAN_OPTIONS[0]
+    const extraMonths = Math.max(0, selectedPlan.months - 6)
+    const interestRate = extraMonths > 0 ? extraMonths * EXTRA_MONTH_INTEREST_RATE : 0
+    const effectiveDownPayment = validDownPayment ? parsedDownPayment : 0
+    const remainingBalance = Math.max(0, total - effectiveDownPayment)
+    const addedInterest = remainingBalance * interestRate
+    const totalWithInterest = remainingBalance + addedInterest
+    const monthlyPayment = remainingBalance > 0 ? totalWithInterest / selectedPlan.months : 0
+
+    return {
+      ...selectedPlan,
+      interestRate,
+      effectiveDownPayment,
+      remainingBalance,
+      addedInterest,
+      totalWithInterest,
+      monthlyPayment,
+    }
+  }, [paymentPlan, parsedDownPayment, total, validDownPayment])
 
   const handlePaymentMethodChange = (nextMethod) => {
     setPaymentMethod(nextMethod)
@@ -89,9 +134,43 @@ export default function Cart() {
 
   const handleClear = () => {
     if (cart.length === 0) return
-    if (window.confirm("Remove all items from your cart?")) {
-      clearCart()
+    clearCart()
+    showCartNotice("Cart has been cleared.")
+  }
+
+  const handlePaymentPlanChange = (nextPlan) => {
+    if (nextPlan === paymentPlan) return
+    setPaymentPlan(nextPlan)
+  }
+
+  const handleProofFileChange = (e) => {
+    const file = e.target.files?.[0] || null
+
+    if (!file) {
+      setProofFile(null)
+      setProofPreviewName("")
+      return
     }
+
+    if (!isValidPaymentProofFile(file)) {
+      e.target.value = ""
+      setProofFile(null)
+      setProofPreviewName("")
+      setOrderError("Please upload an image or PDF proof of payment.")
+      return
+    }
+
+    if (file.size > MAX_PAYMENT_PROOF_BYTES) {
+      e.target.value = ""
+      setProofFile(null)
+      setProofPreviewName("")
+      setOrderError("Proof of payment must be 10 MB or smaller.")
+      return
+    }
+
+    setOrderError(null)
+    setProofFile(file)
+    setProofPreviewName(file.name || "Selected proof")
   }
 
   const handleCheckoutClick = async () => {
@@ -150,20 +229,25 @@ export default function Cart() {
 
       const emailToSave = gate.user?.email || null
       const normalizedPaymentMethod = paymentMethod === "bank_transfer" ? "bank_transfer" : "gcash"
+      const requiresPaymentProof = normalizedPaymentMethod === "gcash" || normalizedPaymentMethod === "bank_transfer"
 
-      if (normalizedPaymentMethod === "gcash" && !proofFile) {
+      if (requiresPaymentProof && !proofFile) {
         setOrderError("Please upload a proof of payment before placing your order.")
         return
       }
 
-      if (normalizedPaymentMethod === "gcash") {
+      if (requiresPaymentProof) {
         if (!validDownPayment) {
-          setOrderError("Please enter a valid GCash down payment amount.")
+          setOrderError(
+            normalizedPaymentMethod === "bank_transfer"
+              ? "Please enter a valid bank transfer down payment amount."
+              : "Please enter a valid GCash down payment amount."
+          )
           return
         }
         if (parsedDownPayment < minimumDownPayment) {
           setOrderError(
-            `GCash down payment must be at least 20% of the order total (${peso(minimumDownPayment)}).`
+            `${normalizedPaymentMethod === "bank_transfer" ? "Bank transfer" : "GCash"} down payment must be at least 20% of the order total (${peso(minimumDownPayment)}).`
           )
           return
         }
@@ -174,10 +258,21 @@ export default function Cart() {
       }
 
       let paymentProofPath = null
-      if (normalizedPaymentMethod === "gcash" && proofFile) {
+      if (requiresPaymentProof && proofFile) {
+        if (!isValidPaymentProofFile(proofFile)) {
+          setOrderError("Please upload an image or PDF proof of payment.")
+          return
+        }
+
+        if (proofFile.size > MAX_PAYMENT_PROOF_BYTES) {
+          setOrderError("Proof of payment must be 10 MB or smaller.")
+          return
+        }
+
         const safeName = `${Date.now()}-${String(proofFile.name || "proof").replace(/[^a-zA-Z0-9._-]/g, "_")}`
         const proofPath = `${gate.user.id}/${safeName}`
         const upload = await supabase.storage.from("payment-proofs").upload(proofPath, proofFile, {
+          contentType: proofFile.type || "application/octet-stream",
           upsert: false,
         })
         if (upload.error) {
@@ -190,6 +285,10 @@ export default function Cart() {
         paymentProofPath = proofPath
       }
 
+      const paymentPlanNote = paymentPlanDetails
+        ? `Payment plan: ${paymentPlanDetails.label} (${paymentPlanDetails.months} months). Monthly installment: ${peso(paymentPlanDetails.monthlyPayment)}. Added interest: ${peso(paymentPlanDetails.addedInterest)}.`
+        : "Payment plan: full payment."
+
       const orderPayload = {
         user_id: gate.user.id,
         customer_name: gate.profile.fullName,
@@ -199,12 +298,12 @@ export default function Cart() {
         total_amount: total,
         status: "pending",
         payment_method: normalizedPaymentMethod,
-        down_payment_amount: normalizedPaymentMethod === "gcash" ? parsedDownPayment : null,
+        down_payment_amount: parsedDownPayment,
         payment_proof_path: paymentProofPath,
         payment_notes:
           normalizedPaymentMethod === "bank_transfer"
-            ? "Customer selected bank transfer. Manager will contact customer for payment coordination."
-            : `Customer selected GCash down payment. Minimum required: ${peso(minimumDownPayment)}.`,
+            ? `${paymentPlanNote} Customer selected bank transfer. Minimum required down payment: ${peso(minimumDownPayment)}. Manager will verify the proof of payment.`
+            : `${paymentPlanNote} Customer selected GCash down payment. Minimum required: ${peso(minimumDownPayment)}.`,
       }
 
       let { data: orderData, error: orderErr } = await supabase
@@ -275,7 +374,11 @@ export default function Cart() {
       let { error: itemsErr } = await supabase.from("order_items").insert(itemsPayload)
 
       if (itemsErr && String(itemsErr.message || "").toLowerCase().includes("variant_id")) {
-        const legacyItemsPayload = itemsPayload.map(({ variant_id, ...rest }) => rest)
+        const legacyItemsPayload = itemsPayload.map((item) => {
+          const legacyItem = { ...item }
+          delete legacyItem.variant_id
+          return legacyItem
+        })
         const fallbackInsert = await supabase.from("order_items").insert(legacyItemsPayload)
         itemsErr = fallbackInsert.error
       }
@@ -361,18 +464,24 @@ export default function Cart() {
           </section>
 
           {orderSuccessId && (
-            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+            <div className={["rounded-2xl border p-4 text-sm", isDark ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800"].join(" ")}>
               <p className="font-semibold">Order placed successfully.</p>
-              <p className="mt-1 text-emerald-200/90">
-                Order reference:{" "}
+              <p className={["mt-1", isDark ? "text-emerald-200/90" : "text-emerald-700"].join(" ")}>
+                Order reference: {" "}
                 <code className={["rounded px-1.5 py-0.5", isDark ? "bg-black/30 text-emerald-100" : "bg-white text-emerald-700 border border-emerald-300/30"].join(" ")}>{orderSuccessId}</code>
               </p>
             </div>
           )}
 
           {orderError && (
-            <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
+            <div className={["rounded-2xl border p-4 text-sm", isDark ? "border-red-400/20 bg-red-500/10 text-red-100" : "border-red-300 bg-red-50 text-red-700"].join(" ")}>
               {orderError}
+            </div>
+          )}
+
+          {cartNotice && (
+            <div className={["rounded-2xl border p-4 text-sm", isDark ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800"].join(" ")}>
+              {cartNotice}
             </div>
           )}
 
@@ -559,9 +668,84 @@ export default function Cart() {
                   </div>
                 </Field>
 
-                {paymentMethod === "gcash" && (
+                <Field label="Payment plan" isDark={isDark}>
+                  <div className="space-y-3">
+                    <div className="grid gap-2">
+                      {PAYMENT_PLAN_OPTIONS.map((plan) => {
+                        const isSelected = paymentPlan === plan.value
+                        return (
+                          <label
+                            key={plan.value}
+                            className={[
+                              "flex cursor-pointer items-start justify-between gap-3 rounded-xl border p-3 text-sm transition",
+                              isDark
+                                ? "border-white/10 bg-white/5 text-zinc-200"
+                                : "border-black/10 bg-white text-zinc-800",
+                              isSelected && (isDark ? "border-red-400/40 bg-red-500/10" : "border-red-200 bg-red-50"),
+                            ].join(" ")}
+                          >
+                            <span className="flex-1">
+                              <span className={"block font-semibold"}>{plan.label}</span>
+                              <span className={"mt-1 block text-xs leading-5"}>{plan.note}</span>
+                            </span>
+                            <input
+                              type="radio"
+                              name="payment_plan"
+                              value={plan.value}
+                              checked={isSelected}
+                              onChange={(e) => handlePaymentPlanChange(e.target.value)}
+                              className="mt-1 accent-red-500"
+                            />
+                          </label>
+                        )
+                      })}
+                    </div>
+
+                    
+                  </div>
+                </Field>
+                  <div
+                      aria-label="Selected payment plan summary"
+                        onClick={(e) => e.stopPropagation()}
+                      className={[
+                        "pointer-events-none cursor-default select-text rounded-xl border p-3 text-sm",
+                        isDark
+                        ? "border-white/10 bg-zinc-900/80 text-zinc-200"
+                        : "border-black/10 bg-zinc-50 text-zinc-700",
+                        ].join(" ")}
+                        > 
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold">Selected plan</span>
+                        <span className={"font-semibold text-red-600"}>{paymentPlanDetails.label}</span>
+                      </div>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-4">
+                        <div>
+                          <p className={"text-[11px] uppercase tracking-[0.16em] text-zinc-500"}>Remaining balance</p>
+                          <p className={"mt-1 font-semibold"}>{peso(paymentPlanDetails.remainingBalance)}</p>
+                        </div>
+                        <div>
+                          <p className={"text-[11px] uppercase tracking-[0.16em] text-zinc-500"}>Monthly payment</p>
+                          <p className={"mt-1 font-semibold"}>{peso(paymentPlanDetails.monthlyPayment)}</p>
+                        </div>
+                        <div>
+                          <p className={"text-[11px] uppercase tracking-[0.16em] text-zinc-500"}>Added interest</p>
+                          <p className={"mt-1 font-semibold"}>{peso(paymentPlanDetails.addedInterest)}</p>
+                        </div>
+                        <div>
+                          <p className={"text-[11px] uppercase tracking-[0.16em] text-zinc-500"}>Total with interest</p>
+                          <p className={"mt-1 font-semibold"}>{peso(paymentPlanDetails.totalWithInterest)}</p>
+                        </div>
+                      </div>
+                      <p className={"mt-2 text-xs leading-5"}>
+                        {paymentPlanDetails.addedInterest > 0
+                          ? `${paymentPlanDetails.label} adds ${peso(paymentPlanDetails.addedInterest)} across ${paymentPlanDetails.months} monthly payments after your down payment.`
+                          : `${paymentPlanDetails.label} is interest-free for this promotion after your down payment.`}
+                      </p>
+                    </div>
+                    
+                {(paymentMethod === "gcash" || paymentMethod === "bank_transfer") && (
                   <>
-                    <Field label="GCash payment details" isDark={isDark}>
+                    <Field label={paymentMethod === "gcash" ? "GCash payment details" : "Bank transfer payment details"} isDark={isDark}>
                       <div
                         className={[
                           "rounded-xl px-4 py-3 text-sm",
@@ -571,42 +755,64 @@ export default function Cart() {
                         ].join(" ")}
                       >
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
-                              GCash Number
-                            </p>
-                            <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
-                              {GCASH_ACCOUNT_NUMBER}
-                            </p>
-                            {/* Defense-safe placeholder for later:
-                            <button
-                              type="button"
-                              onClick={() => navigator.clipboard.writeText(GCASH_ACCOUNT_NUMBER)}
-                              className="mt-2 inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:bg-white/10"
-                            >
-                              Copy number
-                            </button>
-                            */}
-                          </div>
-                          <div>
-                            <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
-                              Account Name
-                            </p>
-                            <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
-                              {GCASH_ACCOUNT_NAME}
-                            </p>
-                          </div>
+                          {paymentMethod === "gcash" ? (
+                            <>
+                              <div>
+                                <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
+                                  GCash Number
+                                </p>
+                                <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                                  {GCASH_ACCOUNT_NUMBER}
+                                </p>
+                              </div>
+                              <div>
+                                <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
+                                  Account Name
+                                </p>
+                                <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                                  {GCASH_ACCOUNT_NAME}
+                                </p>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
+                                  Bank
+                                </p>
+                                <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                                  {BANK_NAME}
+                                </p>
+                              </div>
+                              <div>
+                                <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
+                                  Account No.
+                                </p>
+                                <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                                  {BANK_ACCOUNT_NUMBER}
+                                </p>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <p className={["text-[11px] font-semibold uppercase tracking-[0.16em]", isDark ? "text-zinc-500" : "text-zinc-500"].join(" ")}>
+                                  Account Name
+                                </p>
+                                <p className={["mt-1 text-sm font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                                  {BANK_ACCOUNT_NAME}
+                                </p>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </Field>
 
-                    <Field label="GCash down payment amount" isDark={isDark}>
+                    <Field label={paymentMethod === "gcash" ? "GCash down payment amount" : "Bank transfer down payment amount"} isDark={isDark}>
                       <div className="space-y-2">
                         <input
                           type="number"
                           min={Math.max(1, minimumDownPayment)}
                           max={Math.max(1, total)}
-                          required={paymentMethod === "gcash"}
+                          required={paymentMethod === "gcash" || paymentMethod === "bank_transfer"}
                           value={downPayment}
                           onChange={(e) => setDownPayment(e.target.value)}
                           placeholder={`Minimum ${minimumDownPayment}`}
@@ -631,18 +837,14 @@ export default function Cart() {
                           type="file"
                           accept="image/*,.pdf"
                           required
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] || null
-                            setProofFile(file)
-                            setProofPreviewName(file?.name || "")
-                          }}
+                          onChange={handleProofFileChange}
                           className={[
                             "block w-full rounded-xl px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-red-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-red-500",
                             isDark ? "border border-white/10 bg-zinc-900 text-zinc-200" : "border border-black/10 bg-white text-zinc-800",
                           ].join(" ")}
                         />
                         <p className={["text-xs leading-5", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
-                          Upload a screenshot, photo, or PDF of the GCash payment receipt.
+                          Upload a screenshot, photo, or PDF of the {paymentMethod === "gcash" ? "GCash" : "bank transfer"} payment receipt.
                         </p>
                         {proofPreviewName && (
                           <p className={["text-xs", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
@@ -652,17 +854,6 @@ export default function Cart() {
                       </div>
                     </Field>
                   </>
-                )}
-
-                {paymentMethod === "bank_transfer" && (
-                  <Field label="Bank transfer notice" isDark={isDark}>
-                    <div className="space-y-2">
-                      <p className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                        Bank transfer selected: the manager will contact you to confirm transfer
-                        details and payment instructions.
-                      </p>
-                    </div>
-                  </Field>
                 )}
 
                 <button

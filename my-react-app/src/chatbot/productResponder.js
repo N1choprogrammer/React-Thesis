@@ -55,6 +55,41 @@ function totalVariantStock(product) {
   return Number(product?.stock || 0)
 }
 
+function getAvailableColors(product) {
+  const variants = Array.isArray(product?.product_color_stock) ? product.product_color_stock : []
+  return variants
+    .map((variant) => ({ color: String(variant?.color || "").trim(), stock: Number(variant?.stock || 0) }))
+    .filter((variant) => Boolean(variant.color) && variant.stock > 0)
+    .map((variant) => variant.color)
+}
+
+function extractColorPreference(message, product) {
+  const msg = normalize(message)
+  const variants = Array.isArray(product?.product_color_stock) ? product.product_color_stock : []
+  const colors = variants
+    .map((variant) => String(variant?.color || "").trim())
+    .filter(Boolean)
+
+  if (!colors.length) return null
+
+  const colorAliases = {
+    black: ["black", "dark"],
+    white: ["white", "ivory"],
+    blue: ["blue", "navy"],
+    red: ["red", "maroon"],
+    green: ["green", "lime"],
+    yellow: ["yellow", "gold"],
+    silver: ["silver", "gray", "grey"],
+  }
+
+  for (const color of colors) {
+    const aliases = colorAliases[normalize(color)] || [normalize(color)]
+    if (aliases.some((alias) => msg.includes(alias))) return color
+  }
+
+  return null
+}
+
 function findBestProductMatch(message, products) {
   const msg = normalize(message)
   if (!msg) return null
@@ -98,6 +133,55 @@ export function findProductMatch(message, products) {
   return findBestProductMatch(message, products)
 }
 
+// Add this after your other utility functions (e.g., after getUseCase)
+
+function extractUserContext(message, products) {
+  const msg = String(message || "");
+  return {
+    budget: extractBudget(msg),
+    useCase: getUseCase(msg),
+    wheelType: hasAny(msg, ["3 wheel","three wheel","4 wheel","four wheel"])
+      ? (hasAny(msg, ["4 wheel","four wheel"]) ? "4-wheel" : "3-wheel")
+      : null,
+    specificModel: findBestProductMatch(msg, products)
+  };
+}
+
+// This function orchestrates the conversation; add it after extractUserContext
+
+function getConversationReply(message, products, conversationHistory = []) {
+  const context = extractUserContext(message, products);
+
+  // If the user gave enough info to recommend (but didn't name a specific model)
+  if ((context.budget || context.useCase || context.wheelType) && !context.specificModel) {
+    return getRecommendationReply(message, products);
+  }
+
+  // If the user mentioned a specific model, handle it with existing logic
+  if (context.specificModel) {
+    return getProductAwareReply(message, products);
+  }
+
+  // Not enough info – ask follow-up questions based on what's missing
+  // (You can improve this by checking conversationHistory to avoid repeating)
+  const lastBotMsg = conversationHistory.length >= 2
+    ? (conversationHistory[conversationHistory.length - 2]?.text || "")
+    : "";
+
+  if (lastBotMsg.includes("budget")) {
+    return "And what kind of riding will you mostly do? (e.g., commuting, family trips, deliveries)";
+  }
+  if (!context.budget) {
+    return "To help narrow things down, what's your approximate budget? (e.g., ₱30,000, ₱50,000)";
+  }
+  if (!context.useCase) {
+    return "How will you use the e-bike? For commuting, family rides, or maybe business deliveries?";
+  }
+
+  // Fallback: still ask a general question
+  return "Tell me more about what you're looking for – your budget, riding style, or a specific model name.";
+}
+
 function hasAny(message, phrases) {
   const msg = normalize(message)
   return phrases.some((p) => msg.includes(normalize(p)))
@@ -118,7 +202,7 @@ function extractBudget(message) {
 function getUseCase(message) {
   const msg = normalize(message)
   if (hasAny(msg, ["delivery", "business", "cargo", "pang negosyo", "work"])) return "utility"
-  if (hasAny(msg, ["family", "passenger", "kids", "4 wheel", "four wheel"])) return "family"
+  if (hasAny(msg, ["family", "passenger", "kids", "3 wheel","4 wheel", "four wheel"])) return "family"
   if (hasAny(msg, ["student", "school", "commute", "commuting", "city"])) return "commute"
   return null
 }
@@ -163,8 +247,8 @@ function inferWheelType(product) {
 
 function wheelTypeLabel(product) {
   const type = inferWheelType(product)
-  if (type === "4-wheel") return "same 4-wheel type"
   if (type === "3-wheel") return "same 3-wheel type"
+  if (type === "4-wheel") return "same 4-wheel type"
   return "similar category"
 }
 
@@ -409,6 +493,22 @@ export function getProductAwareReply(message, products) {
   const code = productCode(product)
   const variants = Array.isArray(product.product_color_stock) ? product.product_color_stock : []
   const totalStock = totalVariantStock(product)
+  const requestedColor = extractColorPreference(message, product)
+  const requestedVariant = requestedColor
+    ? variants.find((variant) => normalize(variant?.color || "") === normalize(requestedColor))
+    : null
+  const requestedStock = Number(requestedVariant?.stock || 0)
+  const availableColors = getAvailableColors(product)
+
+  if (requestedColor && (asksStock || asksColor || hasAny(message, ["available", "availability", "in stock", "stock"]))) {
+    if (requestedVariant) {
+      if (requestedStock > 0) {
+        return `${product.name} (${code}) in ${requestedColor} is available. Current stock: ${requestedStock}.`
+      }
+      return `${product.name} (${code}) in ${requestedColor} is currently out of stock. Available colors: ${availableColors.length ? availableColors.join(", ") : "none at the moment"}.`
+    }
+    return `${product.name} (${code}) does not have a ${requestedColor} variant listed right now.`
+  }
 
   if (asksPrice && asksStock) {
     return `${product.name} (${code}) costs ${formatPrice(product.price)} and currently has ${totalStock} total stock${

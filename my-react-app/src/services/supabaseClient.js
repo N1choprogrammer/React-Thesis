@@ -89,8 +89,9 @@ export const supabase = (!supabaseUrl || !supabaseAnonKey)
       from: () => createMissingQueryBuilder([]),
       storage: {
         from: () => ({
-          getPublicUrl: (path) => ({ data: { publicUrl: '' } }),
+          getPublicUrl: () => ({ data: { publicUrl: '' } }),
           upload: async () => ({ data: null, error: missingConfigError() }),
+          createSignedUrl: async () => ({ data: null, error: missingConfigError() }),
           remove: async () => ({ error: missingConfigError() }),
         }),
       },

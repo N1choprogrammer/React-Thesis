@@ -85,11 +85,10 @@
                 "anong e-bike meron kayo?"
             ],
             "responses": [
-                "Yes, we currently have several models in stock. Would you like mountain, city, or road e-bikes?",
-                "Yes, we have a variety of e-bikes available. What type are you looking",
-                "Here are the categories of e-bikes we have: city bikes, mountain bikes, road bikes, and urban bikes. Which one interests you?",
-                "Yes, we have a range of bikes and e-bikes available. Are you looking for a specific type?",
-                "Yes, we have a selection of bikes and e-bikes available. Are you looking for a specific type or model?"
+                "Yes, we currently have several e-bike models ready for order. Tell me the model or style you want, and I can check availability, colors, and payments for you.",
+                "We have a variety of e-bikes available right now. Share the model you want, and I’ll help you confirm stock, colors, and down payment details.",
+                "We currently have multiple models available. If you tell me your preferred style or model, I can guide you through the best option and next steps.",
+                "Yes, several e-bikes are available now. I can help you find one that fits your budget, preferred color, and payment plan."
             ]
         },
         {
@@ -109,10 +108,10 @@
                 "anong presyo ng bike nyo?"
             ],
             "responses": [
-                "Our e-bikes range from ₱15,000 to ₱90,000 depending on the model and features. Want help choosing?",
-                "Prices start at ₱15,000 for basic models and go up to ₱90,000 for high-end e-bikes. What features are you looking for?",
-                "E-bike prices range from ₱15,000 to ₱90,000. We have options for every budget! Would you like to see specific models?",
-                "Our e-bikes range from ₱15,000 to ₱90,000. It depends on the model and features. Would you like to see some options?"
+                "Our e-bikes generally range from ₱15,000 to ₱90,000 depending on the model and features. If you tell me the type you want, I can estimate the down payment and monthly payments too.",
+                "Prices vary by model, but we have options for many budgets. Tell me which bike you’re interested in and I can help you compare it quickly.",
+                "E-bike pricing depends on the model and specifications. I can help you narrow it down and show you the expected down payment and monthly installment.",
+                "We offer e-bikes across a wide price range. Share the model or your budget, and I’ll help you choose the best fit."
             ]
         },
         {
@@ -137,9 +136,9 @@
                 "paano magbayad ng bike?"
             ],
             "responses": [
-                "We accept GCash, bank transfer, and credit card. Installment options are available via Home Credit or partner banks.",
-                "Yes, we offer installment plans through Home Credit and accept GCash, bank transfer, and credit card payments.",
-                "You can pay via GCash, bank transfer, or credit card. We also offer installment plans through Home Credit."
+                "You can pay through GCash, bank transfer, or credit card. We also offer installment plans so you can settle the balance over time.",
+                "Yes, we support cashless payments and installment plans. If you already have a model in mind, I can help estimate your down payment and monthly payments.",
+                "We accept GCash, bank transfer, and credit card payments. Installment plans are also available for qualified orders."
             ]
         },
         {
@@ -297,10 +296,9 @@
                 "anong sinabi mo?"
             ],
             "responses": [
-                "I'm sorry, I didn't understand that. Can you try asking about our e-bikes, delivery, or pricing?",
-                "I didn't catch that. Could you please ask about our e-bikes, delivery options, or pricing?",
-                "I'm not sure what you mean. Could you please ask about our e-bikes, delivery, or pricing?",
-                "I didn't understand that. Could you please ask about our e-bikes, delivery options, or pricing?"
+                "I’m not sure what you mean yet, but I can help with e-bike models, availability, colors, pricing, down payments, monthly payments, and ordering. Try telling me the model you want.",
+                "I didn’t catch that. You can ask me about a specific e-bike, its price, available colors, or how to order it through SpeeGo AI.",
+                "I’m here to help with product selection and ordering. Tell me the model or style you want, and I’ll guide you through it."
             ]
         },
         {
@@ -594,10 +592,7 @@
         {
             "tag": "bike_recommendation",
             "patterns": [
-                "which bike should I buy?",
-                "recommend a bike for me",
-                "what bike do you suggest?",
-                "best bike for me?"
+                "I can help with that! Can you tell me more about your riding preferences and budget?"
             ],
             "responses": [
                 "I can help with that! Can you tell me more about your riding preferences and budget?",

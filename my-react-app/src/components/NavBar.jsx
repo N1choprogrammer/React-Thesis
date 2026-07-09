@@ -90,8 +90,8 @@ export default function NavBar() {
               ].join(" ")}
             />
             <div className="hidden sm:block">
-              <div className={["text-lg font-black tracking-[0.12em] lg:text-2xl lg:leading-none", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
-                SPEEGO
+              <div className={["text-lg font-black tracking-[0.12em] lg:text-1.8xl lg:leading-none", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                SPEEGO TALAVERA
               </div>
               <div className={["text-xs uppercase tracking-[0.18em] lg:mt-1 lg:text-[13px]", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
                 Electric Mobility
@@ -106,7 +106,7 @@ export default function NavBar() {
             <NavItem to="/contact" isDark={isDark}>Contact</NavItem>
             {session && (
               <>
-                <NavItem to="/my-orders" isDark={isDark}>My Orders</NavItem>
+                <NavItem to="/my-orders" isDark={isDark}>Orders</NavItem>
                 <NavItem to="/profile" isDark={isDark}>Profile</NavItem>
               </>
             )}

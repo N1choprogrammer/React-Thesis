@@ -111,7 +111,16 @@ export default function Profile() {
 
     if (error) {
       console.error("Save profile error:", error)
-      setErrorMsg(error.message || "Failed to save profile.")
+      const duplicateName =
+        String(error.message || "").includes("duplicate_profile_name") ||
+        String(error.message || "").includes("Username already exists") ||
+        String(error.details || "").includes("Username already exists") ||
+        String(error.details || "").includes("similar customer name")
+      setErrorMsg(
+        duplicateName
+          ? "Username already exists."
+          : error.message || "Failed to save profile."
+      )
       setSaving(false)
       return
     }

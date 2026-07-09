@@ -96,7 +96,7 @@ export default function Home() {
             <div className={["absolute right-6 top-6 hidden h-20 w-20 rounded-2xl lg:block", isDark ? "border border-white/10 bg-white/5" : "border border-black/10 bg-black/[0.03]"].join(" ")} />
             <div className="absolute right-10 top-10 hidden h-12 w-12 rounded-full border border-red-400/30 bg-red-500/10 lg:block" />
 
-            <SectionEyebrow isDark={isDark}>SPEEGO ELECTRIC BIKE SHOP</SectionEyebrow>
+            <SectionEyebrow isDark={isDark}>SPEEGO TALAVERA ELECTRIC BIKE SHOP</SectionEyebrow>
 
             <h1 className={["mt-5 max-w-3xl text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
               Smart. Efficient.

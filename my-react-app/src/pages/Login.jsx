@@ -145,7 +145,10 @@ export default function Login() {
 
         if (signUpError) {
           console.error("Sign-up error:", signUpError)
-          setError(signUpError.message)
+          const duplicateEmail =
+            String(signUpError.message || "").includes("Email already exists") ||
+            String(signUpError.details || "").includes("Email already exists")
+          setError(duplicateEmail ? "Email already exists." : signUpError.message)
           return
         }
 
@@ -312,7 +315,7 @@ export default function Login() {
                   ].join(" ")}
                 />
                 <div>
-                  <h1 className={["text-3xl font-black tracking-[0.16em]", isDark ? "text-white" : "text-zinc-900"].join(" ")}>SPEEGO</h1>
+                  <h1 className={["text-3xl font-black tracking-[0.16em]", isDark ? "text-white" : "text-zinc-900"].join(" ")}>SPEEGO TALAVERA</h1>
                   <p className={["text-sm uppercase tracking-[0.18em]", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
                     Electric Bike Shop Portal
                   </p>
@@ -364,34 +367,42 @@ export default function Login() {
                   ].join(" ")}
                 />
                 <div>
-                  <h1 className={["text-xl font-black tracking-[0.14em]", isDark ? "text-white" : "text-zinc-900"].join(" ")}>SPEEGO</h1>
+                  <h1 className={["text-xl font-black tracking-[0.14em]", isDark ? "text-white" : "text-zinc-900"].join(" ")}>SPEEGO TALAVERA</h1>
                   <p className={["text-[11px] uppercase tracking-[0.18em]", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
                     Electric Bike Shop Portal
                   </p>
                 </div>
               </div>
 
-              <div className={["grid grid-cols-2 rounded-2xl p-1", isDark ? "border border-white/10 bg-black/40" : "border border-black/10 bg-zinc-100"].join(" ")}>
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange("login")}
-                    className={[
-                      "rounded-xl border-0 bg-transparent px-4 py-2.5 text-sm font-semibold transition",
-                      mode === "login"
-                        ? "bg-red-600 text-white shadow-[0_8px_20px_rgba(220,38,38,0.35)]"
-                        : isDark ? "text-zinc-300 hover:bg-white/5 hover:text-white" : "text-zinc-700 hover:bg-white hover:text-zinc-900",
+              <div className={["grid grid-cols-2 rounded-2xl p-1", isDark ? "border border-white/10 bg-zinc-900/70" : "border border-black/10 bg-zinc-100"].join(" ")}>
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("login")}
+                  className={[
+                    "rounded-xl border px-4 py-2.5 text-sm font-semibold transition",
+                    mode === "login"
+                      ? isDark
+                        ? "border-red-400/40 bg-red-600/90 text-white shadow-[0_6px_16px_rgba(220,38,38,0.28)]"
+                        : "border-red-200 bg-red-50 text-red-700 shadow-[0_4px_12px_rgba(220,38,38,0.12)]"
+                      : isDark
+                        ? "border-transparent bg-transparent text-zinc-300 hover:bg-white/5 hover:text-white"
+                        : "border-transparent bg-transparent text-zinc-700 hover:bg-white hover:text-zinc-900",
                   ].join(" ")}
                 >
                   Log in
                 </button>
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange("signup")}
-                    className={[
-                      "rounded-xl border-0 bg-transparent px-4 py-2.5 text-sm font-semibold transition",
-                      mode === "signup"
-                        ? "bg-red-600 text-white shadow-[0_8px_20px_rgba(220,38,38,0.35)]"
-                        : isDark ? "text-zinc-300 hover:bg-white/5 hover:text-white" : "text-zinc-700 hover:bg-white hover:text-zinc-900",
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("signup")}
+                  className={[
+                    "rounded-xl border px-4 py-2.5 text-sm font-semibold transition",
+                    mode === "signup"
+                      ? isDark
+                        ? "border-red-400/40 bg-red-600/90 text-white shadow-[0_6px_16px_rgba(220,38,38,0.28)]"
+                        : "border-red-200 bg-red-50 text-red-700 shadow-[0_4px_12px_rgba(220,38,38,0.12)]"
+                      : isDark
+                        ? "border-transparent bg-transparent text-zinc-300 hover:bg-white/5 hover:text-white"
+                        : "border-transparent bg-transparent text-zinc-700 hover:bg-white hover:text-zinc-900",
                   ].join(" ")}
                 >
                   Sign up
@@ -405,12 +416,12 @@ export default function Login() {
               </p>
 
               {error && (
-                <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                <div className={["mt-4 rounded-xl border px-4 py-3 text-sm", isDark ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-red-300 bg-red-50 text-red-700"].join(" ")}>
                   {error}
                 </div>
               )}
               {success && (
-                <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                <div className={["mt-4 rounded-xl border px-4 py-3 text-sm", isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800"].join(" ")}>
                   {success}
                 </div>
               )}

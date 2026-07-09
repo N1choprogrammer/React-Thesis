@@ -98,8 +98,8 @@ export default function ForgotPassword() {
             Enter your account email and we will send a secure verification link to reset your password.
           </p>
 
-          {error && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">{error}</div>}
-          {success && <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{success}</div>}
+          {error && <div className={["mt-4 rounded-xl border px-4 py-3 text-sm", isDark ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-red-300 bg-red-50 text-red-700"].join(" ")}>{error}</div>}
+          {success && <div className={["mt-4 rounded-xl border px-4 py-3 text-sm", isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800"].join(" ")}>{success}</div>}
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div className="space-y-2">

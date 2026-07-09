@@ -51,7 +51,7 @@ function buildEmailContent(params: {
   supportEmail: string
 }) {
   const { status, customerName, orderId, totalAmount, siteUrl, supportEmail } = params
-  const ordersUrl = "https://speego-ebikes-web.vercel.app/my-orders"
+  const ordersUrl = "https://speego-ebikes-web.vercel.app/login?next=/my-orders"
   const statusLabel =
     status === "confirmed" ? "confirmed" : status === "completed" ? "completed" : "cancelled"
   const subject =

@@ -202,10 +202,10 @@ export default function ResetPassword() {
               : "Change your password directly while you are logged in to your SPEEGO account."}
           </p>
 
-          {error && <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">{error}</div>}
-          {success && <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{success}</div>}
+          {error && <div className={["mt-4 rounded-xl border px-4 py-3 text-sm", isDark ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-red-300 bg-red-50 text-red-700"].join(" ")}>{error}</div>}
+          {success && <div className={["mt-4 rounded-xl border px-4 py-3 text-sm", isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800"].join(" ")}>{success}</div>}
           {!checkingSession && !hasActiveSession && !success && (
-            <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            <div className={["mt-4 rounded-xl border px-4 py-3 text-sm", isDark ? "border-amber-400/30 bg-amber-500/10 text-amber-100" : "border-amber-300 bg-amber-50 text-amber-800"].join(" ")}>
               This reset link is missing or expired. Request a new password reset email.
             </div>
           )}
