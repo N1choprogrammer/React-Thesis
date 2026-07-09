@@ -24,8 +24,7 @@ function hasPasswordRecoveryParams() {
 
   return (
     searchParams.get("type") === "recovery" ||
-    hashParams.get("type") === "recovery" ||
-    hashParams.has("access_token")
+    hashParams.get("type") === "recovery"
   )
 }
 
