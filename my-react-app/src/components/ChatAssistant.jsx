@@ -374,6 +374,10 @@ function asksAboutQuantity(message) {
   return /\b(two units|2 units|multiple units|more than one|order two|buy two|quantity)\b/.test(message)
 }
 
+function asksToCheckoutOrAdd(message) {
+  return /\b(checkout|check out|add to cart|add .*cart|order|buy|purchase)\b/.test(message)
+}
+
 function isInformationalQuestion(message) {
   return (
     /^(what|which|do|does|can|is|are|any|how|has|where)\b/.test(message) ||
@@ -491,6 +495,45 @@ function getCommonQuestionReply(message, products, matchedProduct) {
   }
 
   return null
+}
+
+function getRequestedItemsFromMessage(message, products) {
+  const msg = normalizeText(message)
+  if (!asksToCheckoutOrAdd(msg)) return []
+
+  const list = Array.isArray(products) ? products : []
+  const mentions = []
+
+  for (const product of list) {
+    const name = normalizeText(product?.name || "")
+    const aliases = []
+
+    if (name.includes("q5")) aliases.push("q5", "speego q5")
+    if (name.includes("eco sports")) aliases.push("eco sports", "ecosports")
+    if (name.includes("ecosada") || name.includes("sada")) aliases.push("ecosada", "eco sada", "sada")
+    if (name.includes("eco trip")) aliases.push("eco trip", "ecotrip")
+    aliases.push(name)
+
+    const matchedAlias = aliases
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length)
+      .find((alias) => msg.includes(alias))
+    if (!matchedAlias) continue
+
+    const aliasIndex = msg.indexOf(matchedAlias)
+    mentions.push({ product, alias: matchedAlias, index: aliasIndex })
+  }
+
+  return mentions
+    .sort((a, b) => a.index - b.index)
+    .map((mention, index, sortedMentions) => {
+      const nextMention = sortedMentions[index + 1]
+      const segmentEnd = nextMention ? nextMention.index : msg.length
+      const segment = msg.slice(mention.index, segmentEnd)
+      const color = getRequestedColor(segment)
+
+      return { product: mention.product, color }
+    })
 }
 
 export default function ChatAssistant() {
@@ -650,6 +693,64 @@ What's most important to you?`,
     }
   }
 
+  const addRequestedItemsToCart = async (requestedItems) => {
+    const items = Array.isArray(requestedItems) ? requestedItems : []
+    if (items.length === 0) return null
+
+    const missingColor = items.find((item) => {
+      const availableColors = getAvailableColors(item.product)
+      return availableColors.length > 0 && !item.color
+    })
+
+    if (missingColor) {
+      return {
+        from: "bot",
+        text: `Please choose a color for ${missingColor.product.name}. Available colors: ${getAvailableColors(missingColor.product).join(", ")}.`,
+      }
+    }
+
+    const unavailableColor = items.find((item) => {
+      if (!item.color) return false
+      const colorVariant = getColorVariant(item.product, item.color)
+      return !colorVariant || Number(colorVariant?.stock || 0) <= 0
+    })
+
+    if (unavailableColor) {
+      return {
+        from: "bot",
+        text: `The chosen color for ${unavailableColor.product.name} is not available. Please choose among the colors provided: ${getAvailableColors(unavailableColor.product).join(", ")}.`,
+      }
+    }
+
+    const gate = await requireCustomerProfile()
+    if (!gate.ok) {
+      return {
+        from: "bot",
+        text: "Please complete your profile first so I can proceed to checkout.",
+        links: [{ label: "Go to profile", href: "/profile" }],
+      }
+    }
+
+    const added = []
+    for (const item of items) {
+      const result = await addToCart(item.product, item.color || null, 1)
+      if (!result?.ok) {
+        return {
+          from: "bot",
+          text: `I couldn't add ${item.product.name} to your cart right now. Please try again from the shop page.`,
+        }
+      }
+      added.push(`${item.product.name}${item.color ? ` in ${item.color}` : ""}`)
+    }
+
+    navigate("/cart")
+    return {
+      from: "bot",
+      text: `${added.join(" and ")} ${added.length === 1 ? "was" : "were"} added to your cart.`,
+      links: [{ label: "View cart", href: "/cart" }],
+    }
+  }
+
   const handleAddToCartFromBot = async (productIdOverride = null, colorOverride = null) => {
     setMessage("")
     setSending(true)
@@ -676,6 +777,7 @@ What's most important to you?`,
       const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
       const matchedProduct = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
       const orderStatusReply = await getOrderStatusReply(userMsg, supabase)
+      const requestedItems = getRequestedItemsFromMessage(userMsg, catalogProducts)
 
       if (orderStatusReply) {
         const normalizedOrderReply =
@@ -685,6 +787,19 @@ What's most important to you?`,
 
         await new Promise((resolve) => setTimeout(resolve, 700))
         setMessages((prev) => [...prev, normalizedOrderReply])
+        setSending(false)
+        return
+      }
+
+      if (requestedItems.length > 0) {
+        const requestedItemsReply = await addRequestedItemsToCart(requestedItems)
+        setAiOrderSession({
+          step: "idle",
+          productId: null,
+          color: null,
+        })
+        await new Promise((resolve) => setTimeout(resolve, 700))
+        setMessages((prev) => [...prev, requestedItemsReply])
         setSending(false)
         return
       }
@@ -749,16 +864,20 @@ What's most important to you?`,
             nextSession.color = null
             const firstOption = similarPreferenceProducts[0]
             const secondOption = similarPreferenceProducts[1]
-            const monthlyIncrease = Math.max(0, getMonthlyPayment(firstOption.price) - getMonthlyPayment(incomingProductMatch.price))
             const firstOptionColors = getAvailableColors(firstOption)
             const firstOptionDownPayment = getDownPayment(firstOption.price)
-            const extraLine = secondOption
-              ? `\n\n${secondOption.name} is another strong alternative if you want a slightly different setup.`
-              : ""
+            const firstOptionMonthlyPayment = getMonthlyPayment(firstOption.price)
+            const otherOptions = [firstOption, secondOption].filter(Boolean)
+            const optionsText = otherOptions
+              .map((option) => {
+                const colors = getAvailableColors(option)
+                return `${option.name} - ${formatPeso(option.price)}${colors.length > 0 ? `, colors: ${colors.join(", ")}` : ""}, down payment: ${formatPeso(getDownPayment(option.price))}, estimated 6-month payment: ${formatPeso(getMonthlyPayment(option.price))}`
+              })
+              .join(" | ")
 
             botReply = {
               from: "bot",
-              text: `${incomingProductMatch.name} is available. Down payment: ${formatPeso(getDownPayment(incomingProductMatch.price))}. Estimated monthly payment for a 6-month plan: ${formatPeso(getMonthlyPayment(incomingProductMatch.price))}.\n\nWe also have ${firstOption.name} available with ${firstOptionColors.length > 0 ? `colors ${firstOptionColors.join(", ")}` : "available color options"}. Its down payment is ${formatPeso(firstOptionDownPayment)}, and you would only need to add about ${formatPeso(monthlyIncrease)} to your monthly payment compared with ${incomingProductMatch.name}.${extraLine}`,
+              text: `Similar alternatives to ${incomingProductMatch.name}: ${optionsText || `${firstOption.name} with ${firstOptionColors.length > 0 ? `colors ${firstOptionColors.join(", ")}` : "available color options"}, down payment ${formatPeso(firstOptionDownPayment)}, estimated 6-month payment ${formatPeso(firstOptionMonthlyPayment)}`}.`,
             }
           } else {
             nextSession.step = "awaiting_product"
