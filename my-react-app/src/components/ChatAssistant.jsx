@@ -24,7 +24,7 @@ function normalizeText(value) {
 }
 
 function formatPeso(amount) {
-  return `PHP ${Number(amount || 0).toLocaleString()}`
+  return `PHP ${Math.round(Number(amount || 0)).toLocaleString()}`
 }
 
 function getAvailableColors(product) {
@@ -38,20 +38,19 @@ function getAvailableColors(product) {
     .map((variant) => variant.color)
 }
 
-function getProductImagePath(product, color = null) {
-  const variants = Array.isArray(product?.product_color_stock) ? product.product_color_stock : []
-  const colorVariant = color ? getColorVariant(product, color) : null
-  return colorVariant?.image_path || product?.image_path || variants.find((variant) => variant?.image_path)?.image_path || null
+function getProductLink(product, color = null) {
+  if (!product?.id) return null
+
+  const params = new URLSearchParams({ product: String(product.id) })
+  if (color) params.set("color", color)
+  return `/shop?${params.toString()}`
 }
 
-function getProductImage(product, color = null) {
-  const path = getProductImagePath(product, color)
-  if (!path) return null
+function getProductLinks(product, color = null) {
+  const href = getProductLink(product, color)
+  if (!href) return []
 
-  return {
-    src: supabase.storage.from("product-images").getPublicUrl(path).data.publicUrl,
-    alt: `${product?.name || "E-bike"}${color ? ` in ${color}` : ""}`,
-  }
+  return [{ label: color ? `View ${product.name} in ${color}` : `View ${product.name}`, href }]
 }
 
 function getColorAliases(color) {
@@ -139,8 +138,12 @@ function getOrderIntent(message) {
     msg.includes("order through speego ai") ||
     msg.includes("buy through speego ai") ||
     msg.includes("speego ai order") ||
+    msg.includes("want to buy") ||
     msg.includes("i want to order") ||
     msg.includes("want to order") ||
+    msg.includes("add to cart") ||
+    msg.includes("add it to cart") ||
+    msg.includes("add this to cart") ||
     msg.includes("order one") ||
     msg.includes("order it") ||
     msg.includes("i want one") ||
@@ -196,6 +199,7 @@ function inferWheelType(product) {
   const name = normalizeText(product?.name || "")
   if (name.includes("4 wheel") || name.includes("4wheel") || name.includes("four wheel")) return "4-wheel"
   if (name.includes("3 wheel") || name.includes("3wheel") || name.includes("three wheel")) return "3-wheel"
+  if (name.includes("ecosada") || name.includes("eco sports") || name.includes("q5")) return "3-wheel"
   return null
 }
 
@@ -259,8 +263,12 @@ function getRecommendedProducts(products, message) {
 
         if (signals.mentionsType) {
           const name = normalizeText(product?.name || "")
+          if ((signals.wantsBusiness || signals.wantsFamily) && isFourWheelSolarProduct(product)) score += 12
+          if ((signals.wantsErrands || signals.wantsDelivery || signals.wantsCommuting) && inferWheelType(product) === "3-wheel") score += 8
+          if (signals.wantsCommuting && (name.includes("eco sports") || name.includes("ecosada"))) score += 4
+          if (signals.wantsErrands && (name.includes("ecosada") || name.includes("eco sports"))) score += 4
+          if (signals.wantsDelivery && name.includes("q5")) score += 3
           if (name.includes("cargo") || name.includes("utility") || name.includes("family")) score += 2
-          if (name.includes("commute") || name.includes("city") || name.includes("road")) score += 2
           if (name.includes("solar")) score += 2
         }
 
@@ -298,9 +306,13 @@ function getRecommendedProducts(products, message) {
       if (signals.wantsFourWheel && wheelType === "4-wheel") score += 8
       if (signals.mentionsType) {
         const name = normalizeText(product?.name || "")
+        if ((signals.wantsBusiness || signals.wantsFamily) && isFourWheelSolarProduct(product)) score += 16
+        if ((signals.wantsErrands || signals.wantsDelivery || signals.wantsCommuting) && wheelType === "3-wheel") score += 10
+        if (signals.wantsCommuting && (name.includes("eco sports") || name.includes("ecosada"))) score += 4
+        if (signals.wantsErrands && (name.includes("ecosada") || name.includes("eco sports"))) score += 5
+        if (signals.wantsDelivery && name.includes("q5")) score += 3
         if (name.includes("solar")) score += 2
         if (name.includes("cargo") || name.includes("utility") || name.includes("family")) score += 2
-        if (name.includes("commute") || name.includes("city") || name.includes("road")) score += 2
       }
       if (price > 0 && !signals.mentionsBudget) score += 1
 
@@ -317,7 +329,12 @@ function getPreferenceSignals(message) {
     wantsThreeWheel: msg.includes("3 wheel") || msg.includes("three wheel") || msg.includes("3 wheels") || msg.includes("three wheels"),
     wantsFourWheel: msg.includes("4 wheel") || msg.includes("four wheel") || msg.includes("4 wheels") || msg.includes("four wheels"),
     mentionsBudget: /\b(budget|price range|under|around|cheap|affordable|expensive)\b/.test(msg),
-    mentionsType: /\b(city|commute|cargo|family|utility|mountain|road|offroad|solar|sport|touring|delivery)\b/.test(msg),
+    wantsBusiness: /\b(business|small business|store|shop|commercial)\b/.test(msg),
+    wantsFamily: /\b(family|parents|kids|children)\b/.test(msg),
+    wantsErrands: /\b(errand|errands|grocery|groceries|market)\b/.test(msg),
+    wantsDelivery: /\b(delivery|deliver|cargo)\b/.test(msg),
+    wantsCommuting: /\b(commute|commuting|daily|city|work|school)\b/.test(msg),
+    mentionsType: /\b(city|commute|commuting|cargo|family|utility|mountain|road|offroad|solar|sport|touring|delivery|business|errand|errands|grocery|groceries|market)\b/.test(msg),
   }
 
   return signals
@@ -333,6 +350,58 @@ function productSummary(product) {
   return `${product.name} - ${formatPeso(product.price)}`
 }
 
+function _getProductFeatures(product, limit = 4) {
+  const description = String(product?.description || "").trim()
+  if (!description) return []
+
+  return description
+    .split(/\r?\n|[;•]/)
+    .map((line) => line.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean)
+    .filter((line) => line.length > 2)
+    .slice(0, limit)
+}
+
+function getCleanProductFeatures(product, limit = 4) {
+  const description = String(product?.description || "").trim()
+  if (!description) return []
+
+  const lines = description
+    .split(/\r?\n|[;•]/)
+    .map((line) => line.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean)
+    .filter((line) => line.length > 2)
+  const topFeaturesIndex = lines.findIndex((line) => normalizeText(line).includes("top features"))
+  const featureLines = topFeaturesIndex >= 0 ? lines.slice(topFeaturesIndex + 1) : lines
+
+  return featureLines
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => !normalizeText(line).includes("top features"))
+    .map((line) => (line.length > 95 ? `${line.slice(0, 92).trim()}...` : line))
+    .slice(0, limit)
+}
+
+function getProductDescriptionSummary(product) {
+  const description = String(product?.description || "").trim()
+  const features = getCleanProductFeatures(product, 5)
+  if (!description && features.length === 0) return "No description is listed for this model yet."
+
+  const intro = description
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !normalizeText(line).includes("top features"))
+
+  return [
+    intro ? intro.replace(/\s+/g, " ").slice(0, 180) : null,
+    features.length ? `Key features: ${features.join(" | ")}` : null,
+  ].filter(Boolean).join(" ")
+}
+
+function getAvailableProductListText(products) {
+  const list = Array.isArray(products) ? products : []
+  return list.length ? list.map(productSummary).join(" | ") : "EcoSada V2, ECO SPORTS V2, SPEEGO Q5, and SpeeGo 4 Wheel Solar"
+}
+
 function getCheapestProducts(products, count = 3) {
   return [...(products || [])]
     .filter((product) => Number(product?.price || 0) > 0)
@@ -344,9 +413,63 @@ function getProductsByWheel(products, wheelType) {
   return (products || []).filter((product) => inferWheelType(product) === wheelType)
 }
 
+function isFourWheelSolarProduct(product) {
+  const name = normalizeText(product?.name || "")
+  return (
+    (name.includes("4 wheel") || name.includes("4wheel") || name.includes("four wheel") || name.includes("4 wheels") || name.includes("four wheels")) &&
+    name.includes("solar")
+  )
+}
+
+function mentionsFourWheelSolar(message) {
+  const msg = normalizeText(message)
+  return (
+    msg.includes("speego 4 wheel solar") ||
+    msg.includes("speego 4 wheels solar") ||
+    msg.includes("4 wheel solar") ||
+    msg.includes("4 wheels solar") ||
+    msg.includes("4wheel solar") ||
+    msg.includes("four wheel solar") ||
+    msg.includes("four wheels solar")
+  )
+}
+
+function getProductAliases(product) {
+  const name = normalizeText(product?.name || "")
+  const aliases = [name]
+
+  if (name.includes("q5")) aliases.push("q5", "speego q5")
+  if (isFourWheelSolarProduct(product)) {
+    aliases.push("speego 4 wheel solar", "speego 4 wheels solar", "4 wheel solar", "4 wheels solar", "4wheel solar", "four wheel solar", "four wheels solar")
+  }
+  if (name.includes("eco sports")) aliases.push("eco sports", "ecosports")
+  if (name.includes("ecosada") || name.includes("sada")) aliases.push("ecosada", "eco sada", "sada")
+  if (name.includes("eco trip")) aliases.push("eco trip", "ecotrip")
+
+  return Array.from(new Set(aliases.filter(Boolean))).sort((a, b) => b.length - a.length)
+}
+
+function findMentionedProducts(message, products) {
+  const msg = normalizeText(message)
+  const list = Array.isArray(products) ? products : []
+
+  return list
+    .map((product) => {
+      const alias = getProductAliases(product).find((entry) => msg.includes(entry))
+      return alias ? { product, index: msg.indexOf(alias) } : null
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.product)
+}
+
 function findCommonProductMatch(message, products) {
   const msg = normalizeText(message)
   const list = Array.isArray(products) ? products : []
+
+  if (mentionsFourWheelSolar(msg)) {
+    return list.find(isFourWheelSolarProduct) || null
+  }
 
   if (/\b(q5|speego q5)\b/.test(msg)) {
     return list.find((product) => normalizeText(product?.name || "").includes("q5")) || null
@@ -374,12 +497,42 @@ function asksAboutPayment(message) {
   return /\b(payment|pay|gcash|bank transfer|installment|monthly|month|down payment|plan|interest|hulugan)\b/.test(message)
 }
 
+function asksGeneralPaymentQuestion(message) {
+  return /\b(gcash|bank transfer|accept|using bank|pay using|interest free|1 year|one year|9 months|nine months|payment plan)\b/.test(message)
+}
+
 function asksAboutAvailability(message) {
   return /\b(available|availability|stock|in stock|models|list|what.*bikes|electric bikes|e bikes|ebikes|3wheel|4wheel)\b/.test(message)
 }
 
 function asksForRecommendation(message) {
   return /\b(recommend|best|suggest|good for|for family|for delivery|for commuting|small business|cheapest|cheap|affordable|budget)\b/.test(message)
+}
+
+function asksForCheaperSimilar(message) {
+  return /\b(similar|like|alternative|instead)\b/.test(message) && /\b(cheap|cheaper|affordable|lower price|less expensive)\b/.test(message)
+}
+
+function asksForSimilarProduct(message) {
+  return /\b(similar|like|alternative|instead|same as)\b/.test(message)
+}
+
+function asksToCompareProducts(message) {
+  return /\b(compare|comparison|versus|vs|difference|different)\b/.test(message)
+}
+
+function asksForProductDescription(message) {
+  return /\b(description|describe|features|feature|specs|specification|details)\b/.test(message)
+}
+
+function getRecommendationReason(message) {
+  const msg = normalizeText(message)
+  if (/\b(family|parents|kids|children)\b/.test(msg)) return "because the 4-wheel setup is more comfortable and stable for family use"
+  if (/\b(business|small business|store|shop|commercial)\b/.test(msg)) return "because the 4-wheel setup is a stronger fit for business use"
+  if (/\b(errand|errands|grocery|groceries|market)\b/.test(msg)) return "because the 3-wheel models are easier to use for errands"
+  if (/\b(delivery|deliver|cargo)\b/.test(msg)) return "because the 3-wheel models are practical for delivery work"
+  if (/\b(commute|commuting|daily|city|work|school)\b/.test(msg)) return "because it is a practical choice for daily commuting"
+  return "based on what you asked for"
 }
 
 function asksAboutOrderProcess(message) {
@@ -402,8 +555,26 @@ function isInformationalQuestion(message) {
     asksForRecommendation(message) ||
     asksAboutOrderProcess(message) ||
     asksAboutQuantity(message) ||
+    asksForProductDescription(message) ||
     /\b(color|colors|available color|other colors)\b/.test(message)
   )
+}
+
+function asksImpossibleCapability(message) {
+  return /\b(fly|flying|airborne|airplane|swim|underwater|100\s*(km|kph|kmh)|100km|100kph|100kmh|100\s*km\/h)\b/.test(message)
+}
+
+function asksProductDetails(message) {
+  return /\b(color|colors|available color|stock|available|down payment|monthly|price|how much|info|information|description|describe|details|detail|show|spec|specs|specification|feature|features|product)\b/.test(message)
+}
+
+function mentionsProductName(message, product) {
+  const msg = normalizeText(message)
+  const name = normalizeText(product?.name || "")
+  if (!msg || !name) return false
+  if (msg.includes(name)) return true
+  if (isFourWheelSolarProduct(product) && mentionsFourWheelSolar(msg)) return true
+  return false
 }
 
 function getCommonQuestionReply(message, products, matchedProduct) {
@@ -411,6 +582,20 @@ function getCommonQuestionReply(message, products, matchedProduct) {
   const list = Array.isArray(products) ? products : []
   const availableProducts = list.filter((product) => getTotalStock(product) > 0)
   const cheapestProducts = getCheapestProducts(availableProducts.length ? availableProducts : list)
+
+  if (asksImpossibleCapability(msg)) {
+    const visibleProducts = (availableProducts.length ? availableProducts : list).slice(0, 6)
+    const capability = /\b(fly|flying|airborne|airplane)\b/.test(msg)
+      ? "fly"
+      : /\b(swim|underwater)\b/.test(msg)
+        ? "go underwater"
+        : "run at 100 km/h"
+
+    return {
+      from: "bot",
+      text: `No, our e-bikes cannot ${capability}. They are made for normal road use. What we do have available are: ${getAvailableProductListText(visibleProducts)}.`,
+    }
+  }
 
   if (asksAboutOrderProcess(msg)) {
     return {
@@ -427,6 +612,41 @@ function getCommonQuestionReply(message, products, matchedProduct) {
   }
 
   if (asksAboutPayment(msg)) {
+    if (asksGeneralPaymentQuestion(msg)) {
+      if (/\b(6 months|six months|6 month|six month|interest free)\b/.test(msg)) {
+        return {
+          from: "bot",
+          text: "Yes. The 6-month payment plan is interest-free for the current promo. You only need the 20% minimum down payment first, then the remaining balance is divided across 6 months.",
+        }
+      }
+
+      if (/\b(1 year|one year|12 months|twelve months)\b/.test(msg)) {
+        return {
+          from: "bot",
+          text: "The 1-year payment plan is available, but it has added interest. The minimum down payment is still 20% of the order total, then the remaining balance is divided across 12 months.",
+        }
+      }
+
+      if (/\b(9 months|nine months|9 month|nine month)\b/.test(msg)) {
+        return {
+          from: "bot",
+          text: "The 9-month payment plan is available, but it includes added interest. The minimum down payment is 20%, then the remaining balance is divided across 9 months.",
+        }
+      }
+
+      if (/\b(gcash|bank transfer|pay using|using bank|accept)\b/.test(msg)) {
+        return {
+          from: "bot",
+          text: "Yes, we accept GCash and bank transfer. After checkout, upload your proof of payment so our manager can verify it.",
+        }
+      }
+
+      return {
+        from: "bot",
+        text: "Yes, we accept GCash and bank transfer. The 6-month plan is interest-free for the current promo, while the 9-month and 1-year plans include added interest. Minimum down payment is 20% of the order total.",
+      }
+    }
+
     if (matchedProduct) {
       return {
         from: "bot",
@@ -444,7 +664,77 @@ function getCommonQuestionReply(message, products, matchedProduct) {
     return null
   }
 
-  if (matchedProduct && (getRequestedColor(msg) || /\b(color|colors|available color|stock|available|down payment|monthly|price|how much)\b/.test(msg))) {
+  if (asksToCompareProducts(msg)) {
+    const comparedProducts = findMentionedProducts(msg, availableProducts.length ? availableProducts : list).slice(0, 2)
+
+    if (comparedProducts.length >= 2) {
+      const [firstProduct, secondProduct] = comparedProducts
+      const cheaperProduct = Number(firstProduct.price || 0) <= Number(secondProduct.price || 0) ? firstProduct : secondProduct
+      const higherPricedProduct = cheaperProduct.id === firstProduct.id ? secondProduct : firstProduct
+      const firstFeatures = getCleanProductFeatures(firstProduct, 2)
+      const secondFeatures = getCleanProductFeatures(secondProduct, 2)
+      const firstColors = getAvailableColors(firstProduct)
+      const secondColors = getAvailableColors(secondProduct)
+
+      return {
+        from: "bot",
+        text: `${firstProduct.name} is ${formatPeso(firstProduct.price)} with ${firstColors.length ? firstColors.join(", ") : "listed"} colors. ${firstFeatures.length ? `Its highlights are ${firstFeatures.join(" and ")}.` : ""} ${secondProduct.name} is ${formatPeso(secondProduct.price)} with ${secondColors.length ? secondColors.join(", ") : "listed"} colors. ${secondFeatures.length ? `Its highlights are ${secondFeatures.join(" and ")}.` : ""} Overall, ${cheaperProduct.name} is better if budget matters. ${higherPricedProduct.name} costs ${formatPeso(Math.abs(Number(higherPricedProduct.price || 0) - Number(cheaperProduct.price || 0)))} more, so choose it if those extra features or its design fit you better.`,
+        links: comparedProducts.flatMap((product) => getProductLinks(product)),
+      }
+    }
+  }
+
+  if (asksForCheaperSimilar(msg) && matchedProduct) {
+    const cheaperOptions = (availableProducts.length ? availableProducts : list)
+      .filter((product) => product.id !== matchedProduct.id && Number(product?.price || 0) < Number(matchedProduct.price || 0))
+      .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))
+      .slice(0, 3)
+
+    if (cheaperOptions.length) {
+      return {
+        from: "bot",
+        text: `Yes. If you want something cheaper than ${matchedProduct.name}, you can check: ${cheaperOptions.map(productSummary).join(" | ")}. Tell me which one you like and I can check the colors for you.`,
+      }
+    }
+  }
+
+  if (asksForSimilarProduct(msg) && matchedProduct) {
+    const similarProducts = getSimilarPreferenceProducts(availableProducts.length ? availableProducts : list, msg, matchedProduct)
+
+    if (similarProducts.length) {
+      return {
+        from: "bot",
+        text: `Sure. Similar options to ${matchedProduct.name} are: ${similarProducts.map(productSummary).join(" | ")}. Tell me which one you want to compare and I can check colors and payment details.`,
+        links: getProductLinks(similarProducts[0]),
+      }
+    }
+  }
+
+  if (asksForRecommendation(msg) && matchedProduct && !mentionsProductName(msg, matchedProduct)) {
+    const cheaperOptions = (availableProducts.length ? availableProducts : list)
+      .filter((product) => product.id !== matchedProduct.id && Number(product?.price || 0) < Number(matchedProduct.price || 0))
+      .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))
+
+    if (cheaperOptions.length) {
+      const bestOption = cheaperOptions[0]
+      const secondOption = cheaperOptions[1]
+      return {
+        from: "bot",
+        text: `For a cheaper option than ${matchedProduct.name}, I would recommend ${bestOption.name}. It is ${formatPeso(bestOption.price)}, so it is easier on the budget.${secondOption ? ` You can also compare it with ${secondOption.name} at ${formatPeso(secondOption.price)}.` : ""}`,
+        links: getProductLinks(bestOption),
+      }
+    }
+  }
+
+  if (matchedProduct && asksForProductDescription(msg)) {
+    return {
+      from: "bot",
+      text: `${matchedProduct.name}: ${getProductDescriptionSummary(matchedProduct)}`,
+      links: getProductLinks(matchedProduct),
+    }
+  }
+
+  if (matchedProduct && (getRequestedColor(msg) || asksProductDetails(msg) || mentionsProductName(msg, matchedProduct))) {
     const colors = getAvailableColors(matchedProduct)
     const stock = getTotalStock(matchedProduct)
     const requestedColor = getRequestedColor(msg)
@@ -457,22 +747,27 @@ function getCommonQuestionReply(message, products, matchedProduct) {
       }
     }
 
+    const naturalIntro = /^is\b/.test(msg) || /\bavailable\b/.test(msg)
+      ? `Yes, ${matchedProduct.name} is available.`
+      : `${matchedProduct.name} is ${stock > 0 ? "available" : "currently out of stock"}.`
+
     return {
       from: "bot",
-      text: `${matchedProduct.name} is ${stock > 0 ? "available" : "currently out of stock"}. Price: ${formatPeso(matchedProduct.price)}. ${colors.length ? `Available colors: ${colors.join(", ")}.` : "No color variants are listed right now."} Down payment: ${formatPeso(getDownPayment(matchedProduct.price))}. Estimated 6-month payment: ${formatPeso(getMonthlyPayment(matchedProduct.price))} per month.`,
-      image: getProductImage(matchedProduct, requestedColorVariant?.color || null),
+      text: `${naturalIntro} Price is ${formatPeso(matchedProduct.price)}, with colors ${colors.length ? colors.join(", ") : "not listed right now"}. Down payment starts at ${formatPeso(getDownPayment(matchedProduct.price))}, and the estimated 6-month payment is ${formatPeso(getMonthlyPayment(matchedProduct.price))} per month.`,
+      links: getProductLinks(matchedProduct, requestedColorVariant?.color || null),
     }
   }
 
   if (msg.includes("cheapest") || msg.includes("cheap") || msg.includes("affordable")) {
     if (!cheapestProducts.length) return null
+    const otherAffordable = cheapestProducts.slice(1).map(productSummary).join(" | ")
     return {
       from: "bot",
-      text: `The most affordable options are: ${cheapestProducts.map(productSummary).join(" | ")}. Tell me which model you like and I can check colors and payment details.`,
+      text: `The cheapest available option is ${cheapestProducts[0].name} at ${formatPeso(cheapestProducts[0].price)}.${otherAffordable ? ` Other affordable choices are ${otherAffordable}.` : ""}`,
     }
   }
 
-  if (msg.includes("3 wheel") || msg.includes("three wheel") || msg.includes("3wheel")) {
+  if (!matchedProduct && (msg.includes("3 wheel") || msg.includes("three wheel") || msg.includes("3wheel"))) {
     const threeWheel = getProductsByWheel(availableProducts.length ? availableProducts : list, "3-wheel")
     return {
       from: "bot",
@@ -482,7 +777,7 @@ function getCommonQuestionReply(message, products, matchedProduct) {
     }
   }
 
-  if (msg.includes("4 wheel") || msg.includes("four wheel") || msg.includes("4wheel")) {
+  if (!matchedProduct && (msg.includes("4 wheel") || msg.includes("four wheel") || msg.includes("4wheel"))) {
     const fourWheel = getProductsByWheel(availableProducts.length ? availableProducts : list, "4-wheel")
     return {
       from: "bot",
@@ -495,9 +790,13 @@ function getCommonQuestionReply(message, products, matchedProduct) {
   if (asksForRecommendation(msg)) {
     const recommendations = getRecommendedProducts(list, message)
     if (recommendations.length > 0) {
+      const top = recommendations[0]
+      const comparisons = recommendations.slice(1).map(productSummary).join(" | ")
+      const reason = getRecommendationReason(msg)
       return {
         from: "bot",
-        text: `I recommend: ${recommendations.map(productSummary).join(" | ")}. Tell me your preferred model or color and I can help you continue.`,
+        text: `I would start with ${top.name} ${reason}. It is ${formatPeso(top.price)}.${comparisons ? ` You can also compare it with ${comparisons}.` : ""}`,
+        links: getProductLinks(top),
       }
     }
   }
@@ -526,6 +825,17 @@ function getRequestedItemsFromMessage(message, products) {
     const aliases = []
 
     if (name.includes("q5")) aliases.push("q5", "speego q5")
+    if (isFourWheelSolarProduct(product)) {
+      aliases.push(
+        "speego 4 wheel solar",
+        "speego 4 wheels solar",
+        "4 wheel solar",
+        "4 wheels solar",
+        "4wheel solar",
+        "four wheel solar",
+        "four wheels solar"
+      )
+    }
     if (name.includes("eco sports")) aliases.push("eco sports", "ecosports")
     if (name.includes("ecosada") || name.includes("sada")) aliases.push("ecosada", "eco sada", "sada")
     if (name.includes("eco trip")) aliases.push("eco trip", "ecotrip")
@@ -591,14 +901,13 @@ What's most important to you?`,
           id,
           short_id,
           name,
+          description,
           price,
           stock,
-          image_path,
           is_active,
           product_color_stock (
             color,
-            stock,
-            image_path
+            stock
           )
         `)
         .eq("is_active", true)
@@ -613,29 +922,9 @@ What's most important to you?`,
             id,
             short_id,
             name,
+            description,
             price,
             stock,
-            image_path,
-            product_color_stock (
-              color,
-              stock,
-              image_path
-            )
-          `)
-        data = fallback.data
-        error = fallback.error
-      }
-
-      if (error && String(error.message || "").toLowerCase().includes("image_path")) {
-        const fallback = await supabase
-          .from("products")
-          .select(`
-            id,
-            short_id,
-            name,
-            price,
-            stock,
-            is_active,
             product_color_stock (
               color,
               stock
@@ -746,6 +1035,7 @@ What's most important to you?`,
       return {
         from: "bot",
         text: `Please choose a color for ${missingColor.product.name}. Available colors: ${getAvailableColors(missingColor.product).join(", ")}.`,
+        links: getProductLinks(missingColor.product),
       }
     }
 
@@ -759,6 +1049,7 @@ What's most important to you?`,
       return {
         from: "bot",
         text: `The chosen color for ${unavailableColor.product.name} is not available. Please choose among the colors provided: ${getAvailableColors(unavailableColor.product).join(", ")}.`,
+        links: getProductLinks(unavailableColor.product),
       }
     }
 
@@ -815,7 +1106,11 @@ What's most important to you?`,
       const orderFlowActive = aiOrderSession.step !== "idle"
       const initialOrderPrompt = isInitialOrderPrompt(userMsg)
       const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
-      const matchedProduct = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
+      const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
+      const contextProduct = catalogProducts.find(
+        (entry) => entry.id === aiOrderSession.productId || entry.id === lastProductContextId
+      )
+      const matchedProduct = directProductMatch || (isInformationalQuestion(normalizedUserMsg) ? contextProduct : null)
       const orderStatusReply = await getOrderStatusReply(userMsg, supabase)
       const requestedItems = getRequestedItemsFromMessage(userMsg, catalogProducts)
 
@@ -833,11 +1128,25 @@ What's most important to you?`,
 
       if (requestedItems.length > 0) {
         const requestedItemsReply = await addRequestedItemsToCart(requestedItems)
-        setAiOrderSession({
-          step: "idle",
-          productId: null,
-          color: null,
-        })
+        const singleRequestedItem = requestedItems.length === 1 ? requestedItems[0] : null
+        const shouldAwaitColor =
+          singleRequestedItem &&
+          getAvailableColors(singleRequestedItem.product).length > 0 &&
+          (!singleRequestedItem.color || !getColorVariant(singleRequestedItem.product, singleRequestedItem.color))
+
+        setAiOrderSession(
+          shouldAwaitColor
+            ? {
+                step: "awaiting_color",
+                productId: singleRequestedItem.product.id,
+                color: null,
+              }
+            : {
+                step: "idle",
+                productId: null,
+                color: null,
+              }
+        )
         await new Promise((resolve) => setTimeout(resolve, 700))
         setMessages((prev) => [...prev, requestedItemsReply])
         setSending(false)
@@ -869,12 +1178,12 @@ What's most important to you?`,
         }
       }
 
-      const startsOrderFlow = initialOrderPrompt || getOrderIntent(userMsg) || orderFlowActive || Boolean(matchedProduct)
+      const startsOrderFlow = initialOrderPrompt || getOrderIntent(userMsg) || orderFlowActive || Boolean(directProductMatch)
 
       if (startsOrderFlow || initialOrderPrompt) {
         const nextSession = { ...aiOrderSession }
         let botReply = null
-        const incomingProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
+        const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
 
         if (initialOrderPrompt) {
           nextSession.step = "awaiting_product"
@@ -895,7 +1204,7 @@ What's most important to you?`,
           botReply = {
             from: "bot",
             text: `${incomingProductMatch.name} is ${stock > 0 ? "available" : "currently out of stock"}. ${availableColors.length > 0 ? `Available colors: ${availableColors.join(", ")}.` : "No color variants are listed right now."} Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}.`,
-            image: getProductImage(incomingProductMatch),
+            links: getProductLinks(incomingProductMatch),
           }
         } else if (isProductPreferenceMessage(userMsg) && incomingProductMatch?.id) {
           const similarPreferenceProducts = getSimilarPreferenceProducts(catalogProducts, userMsg, incomingProductMatch)
@@ -971,7 +1280,7 @@ What's most important to you?`,
             botReply = {
               from: "bot",
               text: `${matchedProduct.name} is ${stock > 0 ? "available" : "currently out of stock"}. ${availableColors.length > 0 ? `Available colors: ${availableColors.join(", ")}.` : "No color variants are listed right now."} Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. Tell me the color you want, or I can recommend one if it is not available.`,
-              image: getProductImage(matchedProduct),
+              links: getProductLinks(matchedProduct),
             }
           }
         } else if (nextSession.step === "awaiting_color") {
@@ -1010,7 +1319,7 @@ What's most important to you?`,
               botReply = {
                 from: "bot",
                 text: `${product.name} is ${stock > 0 ? "available" : "currently out of stock"}. Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. You can add this item to your cart when you are ready.`,
-                image: getProductImage(product),
+                links: getProductLinks(product),
                 actions: [{ label: "Add to cart", onClick: () => handleAddToCartFromBot(product.id, nextSession.color) }],
               }
             } else if (requestedColorIsAvailable) {
@@ -1021,7 +1330,7 @@ What's most important to you?`,
               botReply = {
                 from: "bot",
                 text: `${product.name} in ${requestedColor} is available. ${requestedColorStock > 0 ? `${requestedColor} has ${requestedColorStock} left in stock.` : `${requestedColor} is out of stock.`} Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. You can add this item to your cart when you are ready.`,
-                image: getProductImage(product, requestedColor),
+                links: getProductLinks(product, requestedColor),
                 actions: [{ label: "Add to cart", onClick: () => handleAddToCartFromBot(product.id, requestedColor) }],
               }
             } else if (requestedColor) {
@@ -1039,7 +1348,7 @@ What's most important to you?`,
               botReply = {
                 from: "bot",
                 text: `${product.name} is ${stock > 0 ? "available" : "currently out of stock"}. Available colors: ${availableColors.join(", ")}. Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. Please tell me which color you want before I add it to your cart.`,
-                image: getProductImage(product),
+                links: getProductLinks(product),
               }
             }
           }
@@ -1100,7 +1409,11 @@ What's most important to you?`,
 
       let botReply = null
 
-      if (budgetRecommendations.length > 0) {
+      if (asksImpossibleCapability(normalizedUserMsg) || commonProductMatch?.id) {
+        botReply = getCommonQuestionReply(normalizedUserMsg, catalogProducts, commonProductMatch || matchedProduct)
+      }
+
+      if (!botReply && budgetRecommendations.length > 0) {
         const listText = budgetRecommendations.map((product) => `${product.name} — ${formatPeso(product.price)}`).join(" | ")
         botReply = {
           from: "bot",
@@ -1160,26 +1473,38 @@ What's most important to you?`,
     const text = String(msg?.text || "")
     const links = Array.isArray(msg?.links) ? msg.links : []
     const actions = Array.isArray(msg?.actions) ? msg.actions : []
-    const image = msg?.image?.src ? msg.image : null
+    const standaloneLinks = links.filter((link) => {
+      const label = String(link?.label || "")
+      return label && !text.includes(label)
+    })
 
-    const imageNode = image ? (
-      <img
-        src={image.src}
-        alt={image.alt || "E-bike"}
-        style={{
-          width: "100%",
-          maxHeight: "180px",
-          objectFit: "contain",
-          background: "rgba(255,255,255,0.04)",
-          borderRadius: "12px",
-          border: "1px solid var(--chat-chip-border)",
-        }}
-      />
-    ) : null
-
-    if (msg?.from !== "bot" || (links.length === 0 && actions.length === 0 && !imageNode)) {
+    if (msg?.from !== "bot" || (links.length === 0 && actions.length === 0)) {
       return <span style={{ whiteSpace: "pre-wrap" }}>{text}</span>
     }
+
+    const renderStandaloneLinks = () =>
+      standaloneLinks.length > 0 ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+          {standaloneLinks.map((link) => (
+            <button
+              key={`${link.href}-${link.label}`}
+              type="button"
+              onClick={() => navigate(link.href)}
+              style={{
+                border: "1px solid var(--chat-chip-border)",
+                background: "var(--chat-chip-bg)",
+                color: "var(--chat-chip-text)",
+                borderRadius: "999px",
+                padding: "0.38rem 0.7rem",
+                fontSize: "12px",
+                cursor: "pointer",
+              }}
+            >
+              {link.label}
+            </button>
+          ))}
+        </div>
+      ) : null
 
     const parts = []
     let cursor = 0
@@ -1221,8 +1546,8 @@ What's most important to you?`,
     if (parts.length === 0) {
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-          {imageNode}
           <span style={{ whiteSpace: "pre-wrap" }}>{text}</span>
+          {renderStandaloneLinks()}
           {actions.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
               {actions.map((action) => (
@@ -1255,8 +1580,8 @@ What's most important to you?`,
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-        {imageNode}
         <span style={{ whiteSpace: "pre-wrap" }}>{parts}</span>
+        {renderStandaloneLinks()}
         {actions.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
             {actions.map((action) => (

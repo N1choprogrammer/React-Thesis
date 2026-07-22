@@ -9,6 +9,7 @@ export default function Shop() {
   const [products, setProducts] = useState([])
   const { addToCart } = useCart()
   const [quickViewProduct, setQuickViewProduct] = useState(null)
+  const [quickViewColor, setQuickViewColor] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => {
@@ -111,6 +112,7 @@ export default function Shop() {
 
   useEffect(() => {
     const targetProduct = searchParams.get("product")
+    const targetColor = searchParams.get("color")
     if (!targetProduct || products.length === 0) return
 
     const match = products.find(
@@ -118,9 +120,13 @@ export default function Shop() {
     )
 
     if (match) {
+      // URL query params intentionally open the requested product/color quick view.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQuickViewProduct(match)
+      setQuickViewColor(targetColor || null)
       const nextParams = new URLSearchParams(searchParams)
       nextParams.delete("product")
+      nextParams.delete("color")
       setSearchParams(nextParams, { replace: true })
     }
   }, [products, searchParams, setSearchParams])
@@ -220,7 +226,11 @@ export default function Shop() {
       {quickViewProduct && (
         <QuickViewModal
           product={quickViewProduct}
-          onClose={() => setQuickViewProduct(null)}
+          initialColor={quickViewColor}
+          onClose={() => {
+            setQuickViewProduct(null)
+            setQuickViewColor(null)
+          }}
           addToCart={addToCart}
           onAdded={handleAdded}
           onNotify={showToast}
@@ -263,6 +273,12 @@ function getPublicImageUrl(path) {
 
 function formatPrice(value) {
   return `PHP ${Number(value || 0).toLocaleString()}`
+}
+
+function getDescriptionPreview(description, maxLength = 120) {
+  const text = String(description || "").trim()
+  if (!text) return ""
+  return text.length > maxLength ? `${text.slice(0, maxLength).trim()}...` : text
 }
 
 function getProductCode(product) {
@@ -427,7 +443,7 @@ function ProductCard({ product, addToCart, onAdded, onNotify, isRecentlyAdded, o
   return (
     <article
       className={[
-        "group overflow-hidden rounded-2xl border bg-gradient-to-b p-4 shadow-[0_20px_45px_rgba(0,0,0,0.28)] transition duration-200",
+        "group overflow-visible rounded-2xl border bg-gradient-to-b p-4 shadow-[0_20px_45px_rgba(0,0,0,0.28)] transition duration-200",
         isRecentlyAdded
           ? (isDark
               ? "border-red-400/50 from-red-500/10 to-zinc-950 ring-1 ring-red-400/30"
@@ -462,7 +478,7 @@ function ProductCard({ product, addToCart, onAdded, onNotify, isRecentlyAdded, o
       </button>
 
       {imagePaths.length > 1 && (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="relative z-10 mt-3 flex flex-wrap gap-2">
           {imagePaths.slice(0, 5).map((path, idx) => {
             const thumbUrl = getPublicImageUrl(path)
             const thumbColor =
@@ -478,14 +494,14 @@ function ProductCard({ product, addToCart, onAdded, onNotify, isRecentlyAdded, o
                 onClick={() => setActiveImageIndex(idx)}
                 title={thumbColor || product.name}
                 className={[
-                  "h-12 w-12 overflow-hidden rounded-lg border transition",
+                  "relative h-12 w-12 overflow-hidden rounded-lg border transition duration-200 ease-out hover:z-20 hover:-translate-y-1 hover:scale-150 hover:shadow-2xl focus-visible:z-20 focus-visible:-translate-y-1 focus-visible:scale-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400",
                   idx === activeImageIndex
                     ? "border-red-400 ring-1 ring-red-400/30"
-                    : isDark ? "border-white/10 bg-zinc-900 hover:border-white/20" : "border-black/10 bg-white hover:border-black/20",
+                    : isDark ? "border-white/10 bg-zinc-900 hover:border-white/30" : "border-black/10 bg-white hover:border-black/30",
                 ].join(" ")}
               >
                 {thumbUrl ? (
-                  <img src={thumbUrl} alt={`${product.name} ${idx + 1}`} className="h-full w-full object-cover" />
+                  <img src={thumbUrl} alt={`${product.name} ${idx + 1}`} className="h-full w-full object-cover transition duration-200" />
                 ) : null}
               </button>
             )
@@ -512,9 +528,8 @@ function ProductCard({ product, addToCart, onAdded, onNotify, isRecentlyAdded, o
         </button>
       </div>
 
-      <p className={["mt-3 min-h-[44px] text-sm leading-6", isDark ? "text-zinc-400" : "text-zinc-600"].join(" ")}>
-        {product.description?.slice(0, 90)}
-        {product.description && product.description.length > 90 ? "..." : ""}
+      <p className={["mt-3 min-h-[44px] whitespace-pre-line text-sm leading-6", isDark ? "text-zinc-400" : "text-zinc-600"].join(" ")}>
+        {getDescriptionPreview(product.description)}
       </p>
 
       <div className="mt-3 flex flex-col gap-2">
@@ -562,11 +577,23 @@ function ProductCard({ product, addToCart, onAdded, onNotify, isRecentlyAdded, o
   )
 }
 
-function QuickViewModal({ product, onClose, addToCart, onAdded, onNotify, isDark }) {
+function QuickViewModal({ product, initialColor, onClose, addToCart, onAdded, onNotify, isDark }) {
   const imagePaths = getImagePaths(product)
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [qty, setQty] = useState(1)
   const [adding, setAdding] = useState(false)
+
+  useEffect(() => {
+    if (!initialColor || !Array.isArray(product?.product_color_stock)) return
+
+    const targetIndex = product.product_color_stock.findIndex(
+      (variant) => String(variant?.color || "").toLowerCase() === String(initialColor).toLowerCase()
+    )
+
+    if (targetIndex >= 0) {
+      setActiveImageIndex(targetIndex)
+    }
+  }, [initialColor, product])
 
   const activeImagePath = imagePaths[activeImageIndex]
   const activeImageUrl = getPublicImageUrl(activeImagePath)
@@ -690,7 +717,7 @@ function QuickViewModal({ product, onClose, addToCart, onAdded, onNotify, isDark
             </div>
 
             {imagePaths.length > 1 && (
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="relative z-10 mt-4 flex flex-wrap gap-2">
                 {imagePaths.slice(0, 6).map((path, idx) => {
                   const thumbUrl = getPublicImageUrl(path)
                   const thumbColor =
@@ -706,10 +733,10 @@ function QuickViewModal({ product, onClose, addToCart, onAdded, onNotify, isDark
                       onClick={() => setActiveImageIndex(idx)}
                       title={thumbColor || product.name}
                       className={[
-                        "h-14 w-14 overflow-hidden rounded-lg border transition",
+                        "relative h-14 w-14 overflow-hidden rounded-lg border transition duration-200 ease-out hover:z-20 hover:-translate-y-1 hover:scale-150 hover:shadow-2xl focus-visible:z-20 focus-visible:-translate-y-1 focus-visible:scale-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400",
                         idx === activeImageIndex
                           ? "border-red-400 ring-1 ring-red-400/30"
-                          : isDark ? "border-white/10 bg-zinc-900 hover:border-white/20" : "border-black/10 bg-white hover:border-black/20",
+                          : isDark ? "border-white/10 bg-zinc-900 hover:border-white/30" : "border-black/10 bg-white hover:border-black/30",
                       ].join(" ")}
                     >
                       {thumbUrl ? (
@@ -729,7 +756,7 @@ function QuickViewModal({ product, onClose, addToCart, onAdded, onNotify, isDark
           <div className="p-4 sm:p-6">
             <h3 className={["text-2xl font-bold tracking-tight sm:text-3xl", isDark ? "text-white" : "text-zinc-900"].join(" ")}>{product.name}</h3>
             <p className="mt-2 text-lg font-semibold text-red-300">{formatPrice(product.price)}</p>
-            <p className={["mt-4 text-sm leading-7", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
+            <p className={["mt-4 whitespace-pre-line text-sm leading-7", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
               {product.description || "No description provided."}
             </p>
 
