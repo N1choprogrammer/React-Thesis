@@ -408,6 +408,7 @@ export default function AdminOrders() {
                       <div className="text-sm text-zinc-300">
                         <p>{order.customer_phone || "-"}</p>
                         {order.customer_email && <p className="break-all text-zinc-400">{order.customer_email}</p>}
+                        {order.address && <p className="mt-1 text-zinc-400">{order.address}</p>}
                       </div>
                     </div>
 
@@ -455,6 +456,30 @@ export default function AdminOrders() {
 
                   {isExpanded && (
                     <div className="space-y-4 border-t border-white/10 p-4 sm:p-5">
+                      <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                          Customer information
+                        </p>
+                        <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Name</p>
+                            <p className="mt-1 font-semibold text-white">{order.customer_name || "Guest"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Phone number</p>
+                            <p className="mt-1 text-zinc-200">{order.customer_phone || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Email</p>
+                            <p className="mt-1 break-all text-zinc-200">{order.customer_email || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">Address</p>
+                            <p className="mt-1 whitespace-pre-line text-zinc-200">{order.address || "-"}</p>
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="rounded-xl border border-white/10 bg-black/30 p-3">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>

@@ -6,14 +6,14 @@ import { requireCustomerProfile } from "../utils/requireCustomerProfile"
 import { useTheme } from "../context/ThemeContext"
 
 const GCASH_ACCOUNT_NAME =
-  import.meta.env.VITE_GCASH_ACCOUNT_NAME || "SPEEGO E-BIKES"
+  import.meta.env.VITE_GCASH_ACCOUNT_NAME || "JOSEPHINE C. DORMIENDO"
 const GCASH_ACCOUNT_NUMBER =
-  import.meta.env.VITE_GCASH_ACCOUNT_NUMBER || "09XX XXX XXXX"
+  import.meta.env.VITE_GCASH_ACCOUNT_NUMBER || "0995-190-4548"
 const BANK_ACCOUNT_NAME =
-  import.meta.env.VITE_BANK_ACCOUNT_NAME || "SPEEGO E-BIKES"
+  import.meta.env.VITE_BANK_ACCOUNT_NAME || "JOSEPHINE C. DORMIENDO"
 const BANK_ACCOUNT_NUMBER =
-  import.meta.env.VITE_BANK_ACCOUNT_NUMBER || "0000-0000-0000"
-const BANK_NAME = import.meta.env.VITE_BANK_NAME || "BDO"
+  import.meta.env.VITE_BANK_ACCOUNT_NUMBER || "0260-002738"
+const BANK_NAME = import.meta.env.VITE_BANK_NAME || "Bank Transfer"
 const EXTRA_MONTH_INTEREST_RATE = 0.0125
 const MAX_PAYMENT_PROOF_BYTES = 10 * 1024 * 1024
 const PAYMENT_PLAN_OPTIONS = [
@@ -21,6 +21,9 @@ const PAYMENT_PLAN_OPTIONS = [
   { value: "9_months", label: "9 months", months: 9, note: "Interest added for 3 extra months" },
   { value: "12_months", label: "1 year", months: 12, note: "Interest added for 6 extra months" },
 ]
+const CUSTOM_PAYMENT_PLAN_VALUE = "custom_months"
+const MIN_CUSTOM_PAYMENT_MONTHS = 13
+const MAX_CUSTOM_PAYMENT_MONTHS = 36
 
 function peso(value) {
   return `PHP ${Number(value || 0).toLocaleString()}`
@@ -33,7 +36,7 @@ function isValidPaymentProofFile(file) {
 
 function Field({ label, children, isDark }) {
   return (
-    <label className="block">
+    <div className="block">
       <span
         className={[
           "mb-2 block text-xs font-semibold uppercase tracking-[0.16em]",
@@ -43,7 +46,7 @@ function Field({ label, children, isDark }) {
         {label}
       </span>
       {children}
-    </label>
+    </div>
   )
 }
 
@@ -57,8 +60,10 @@ export default function Cart() {
   const [customerPhone, setCustomerPhone] = useState("")
   const [customerEmail, setCustomerEmail] = useState("")
   const [customerAddress, setCustomerAddress] = useState("")
+  const [paymentType, setPaymentType] = useState("online")
   const [paymentMethod, setPaymentMethod] = useState("gcash")
   const [paymentPlan, setPaymentPlan] = useState("6_months")
+  const [customPaymentMonths, setCustomPaymentMonths] = useState("16")
   const [downPayment, setDownPayment] = useState("")
   const [proofFile, setProofFile] = useState(null)
   const [proofPreviewName, setProofPreviewName] = useState("")
@@ -87,7 +92,19 @@ export default function Cart() {
   const validDownPayment = Number.isFinite(parsedDownPayment) && parsedDownPayment > 0
   const minimumDownPayment = Math.ceil(total * 0.2)
   const paymentPlanDetails = useMemo(() => {
-    const selectedPlan = PAYMENT_PLAN_OPTIONS.find((plan) => plan.value === paymentPlan) || PAYMENT_PLAN_OPTIONS[0]
+    const parsedCustomMonths = Number(customPaymentMonths)
+    const safeCustomMonths = Number.isFinite(parsedCustomMonths)
+      ? Math.min(MAX_CUSTOM_PAYMENT_MONTHS, Math.max(MIN_CUSTOM_PAYMENT_MONTHS, Math.round(parsedCustomMonths)))
+      : MIN_CUSTOM_PAYMENT_MONTHS
+    const selectedPlan =
+      paymentPlan === CUSTOM_PAYMENT_PLAN_VALUE
+        ? {
+            value: CUSTOM_PAYMENT_PLAN_VALUE,
+            label: `${safeCustomMonths} months`,
+            months: safeCustomMonths,
+            note: "Custom flexible payment plan",
+          }
+        : PAYMENT_PLAN_OPTIONS.find((plan) => plan.value === paymentPlan) || PAYMENT_PLAN_OPTIONS[0]
     const extraMonths = Math.max(0, selectedPlan.months - 6)
     const interestRate = extraMonths > 0 ? extraMonths * EXTRA_MONTH_INTEREST_RATE : 0
     const effectiveDownPayment = validDownPayment ? parsedDownPayment : 0
@@ -105,14 +122,20 @@ export default function Cart() {
       totalWithInterest,
       monthlyPayment,
     }
-  }, [paymentPlan, parsedDownPayment, total, validDownPayment])
+  }, [customPaymentMonths, paymentPlan, parsedDownPayment, total, validDownPayment])
 
   const handlePaymentMethodChange = (nextMethod) => {
     setPaymentMethod(nextMethod)
-    if (nextMethod !== "gcash") {
+  }
+
+  const handlePaymentTypeChange = (nextType) => {
+    setPaymentType(nextType)
+    if (nextType === "cash") {
       setDownPayment("")
       setProofFile(null)
       setProofPreviewName("")
+    } else if (paymentMethod === "cash") {
+      setPaymentMethod("gcash")
     }
   }
 
@@ -189,6 +212,7 @@ export default function Cart() {
     setCustomerPhone(gate.profile?.phone || "")
     setCustomerAddress(gate.profile?.address || "")
     setCustomerEmail(gate.user?.email || "")
+    setPaymentType("online")
     setPaymentMethod("gcash")
     setDownPayment("")
     setProofFile(null)
@@ -228,8 +252,14 @@ export default function Cart() {
       }
 
       const emailToSave = gate.user?.email || null
-      const normalizedPaymentMethod = paymentMethod === "bank_transfer" ? "bank_transfer" : "gcash"
+      const normalizedPaymentMethod =
+        paymentType === "cash"
+          ? "cash"
+          : paymentMethod === "bank_transfer"
+            ? "bank_transfer"
+            : "gcash"
       const requiresPaymentProof = normalizedPaymentMethod === "gcash" || normalizedPaymentMethod === "bank_transfer"
+      const orderDownPaymentAmount = requiresPaymentProof ? parsedDownPayment : 0
 
       if (requiresPaymentProof && !proofFile) {
         setOrderError("Please upload a proof of payment before placing your order.")
@@ -298,12 +328,14 @@ export default function Cart() {
         total_amount: total,
         status: "pending",
         payment_method: normalizedPaymentMethod,
-        down_payment_amount: parsedDownPayment,
+        down_payment_amount: orderDownPaymentAmount,
         payment_proof_path: paymentProofPath,
         payment_notes:
           normalizedPaymentMethod === "bank_transfer"
             ? `${paymentPlanNote} Customer selected bank transfer. Minimum required down payment: ${peso(minimumDownPayment)}. Manager will verify the proof of payment.`
-            : `${paymentPlanNote} Customer selected GCash down payment. Minimum required: ${peso(minimumDownPayment)}.`,
+            : normalizedPaymentMethod === "cash"
+              ? `${paymentPlanNote} Customer selected cash payment in person. No online down payment or proof of payment was required.`
+              : `${paymentPlanNote} Customer selected GCash down payment. Minimum required: ${peso(minimumDownPayment)}.`,
       }
 
       let { data: orderData, error: orderErr } = await supabase
@@ -328,8 +360,10 @@ export default function Cart() {
             status: "pending",
             notes:
               normalizedPaymentMethod === "gcash"
-                ? `Payment method: GCash (down payment ${peso(parsedDownPayment)}). Proof uploaded: ${paymentProofPath || "yes"}`
-                : "Payment method: Bank Transfer. Manager will contact customer.",
+                ? `Payment method: GCash (down payment ${peso(orderDownPaymentAmount)}). Proof uploaded: ${paymentProofPath || "yes"}`
+                : normalizedPaymentMethod === "cash"
+                  ? "Payment method: Cash. Customer will pay in person."
+                  : "Payment method: Bank Transfer. Manager will contact customer.",
           }
 
           let fallback = await supabase.from("orders").insert(legacyPayload).select().single()
@@ -629,19 +663,20 @@ export default function Cart() {
                     <label className={[
                       "flex cursor-pointer items-start gap-3 rounded-xl p-3 text-sm",
                       isDark ? "border border-white/10 bg-white/5 text-zinc-200" : "border border-black/10 bg-white text-zinc-800",
+                      paymentType === "online" && (isDark ? "border-red-400/40 bg-red-500/10" : "border-red-200 bg-red-50"),
                     ].join(" ")}>
                       <input
                         type="radio"
-                        name="payment_method"
-                        value="gcash"
-                        checked={paymentMethod === "gcash"}
-                        onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                        name="payment_type"
+                        value="online"
+                        checked={paymentType === "online"}
+                        onChange={(e) => handlePaymentTypeChange(e.target.value)}
                         className="mt-0.5 accent-red-500"
                       />
                       <span>
-                        <span className={["block font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>GCash (Down payment)</span>
+                        <span className={["block font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Online payment</span>
                         <span className={["mt-1 block text-xs leading-5", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
-                          Customer can send a down payment now and upload proof of payment.
+                          Pay through GCash or bank transfer and upload proof of payment.
                         </span>
                       </span>
                     </label>
@@ -649,24 +684,73 @@ export default function Cart() {
                     <label className={[
                       "flex cursor-pointer items-start gap-3 rounded-xl p-3 text-sm",
                       isDark ? "border border-white/10 bg-white/5 text-zinc-200" : "border border-black/10 bg-white text-zinc-800",
+                      paymentType === "cash" && (isDark ? "border-red-400/40 bg-red-500/10" : "border-red-200 bg-red-50"),
                     ].join(" ")}>
                       <input
                         type="radio"
-                        name="payment_method"
-                        value="bank_transfer"
-                        checked={paymentMethod === "bank_transfer"}
-                        onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                        name="payment_type"
+                        value="cash"
+                        checked={paymentType === "cash"}
+                        onChange={(e) => handlePaymentTypeChange(e.target.value)}
                         className="mt-0.5 accent-red-500"
                       />
                       <span>
-                        <span className={["block font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Bank Transfer</span>
+                        <span className={["block font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Cash / pay in person</span>
                         <span className={["mt-1 block text-xs leading-5", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
-                          Manager will contact the customer to provide bank transfer details.
+                          No online down payment needed. The customer will pay at the store or with staff.
                         </span>
                       </span>
                     </label>
                   </div>
                 </Field>
+
+                {paymentType === "online" && (
+                  <Field label="Online payment option" isDark={isDark}>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className={[
+                        "flex cursor-pointer items-start gap-3 rounded-xl p-3 text-sm",
+                        isDark ? "border border-white/10 bg-white/5 text-zinc-200" : "border border-black/10 bg-white text-zinc-800",
+                        paymentMethod === "gcash" && (isDark ? "border-red-400/40 bg-red-500/10" : "border-red-200 bg-red-50"),
+                      ].join(" ")}>
+                        <input
+                          type="radio"
+                          name="payment_method"
+                          value="gcash"
+                          checked={paymentMethod === "gcash"}
+                          onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                          className="mt-0.5 accent-red-500"
+                        />
+                        <span>
+                          <span className={["block font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>GCash</span>
+                          <span className={["mt-1 block text-xs leading-5", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+                            Send the down payment now and upload the receipt.
+                          </span>
+                        </span>
+                      </label>
+
+                      <label className={[
+                        "flex cursor-pointer items-start gap-3 rounded-xl p-3 text-sm",
+                        isDark ? "border border-white/10 bg-white/5 text-zinc-200" : "border border-black/10 bg-white text-zinc-800",
+                        paymentMethod === "bank_transfer" && (isDark ? "border-red-400/40 bg-red-500/10" : "border-red-200 bg-red-50"),
+                      ].join(" ")}>
+                        <input
+                          type="radio"
+                          name="payment_method"
+                          value="bank_transfer"
+                          checked={paymentMethod === "bank_transfer"}
+                          onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                          className="mt-0.5 accent-red-500"
+                        />
+                        <span>
+                          <span className={["block font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Bank Transfer</span>
+                          <span className={["mt-1 block text-xs leading-5", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+                            Transfer the down payment and upload the receipt.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  </Field>
+                )}
 
                 <Field label="Payment plan" isDark={isDark}>
                   <div className="space-y-3">
@@ -699,6 +783,58 @@ export default function Cart() {
                           </label>
                         )
                       })}
+                      <label
+                        className={[
+                          "flex cursor-pointer flex-col gap-3 rounded-xl border p-3 text-sm transition sm:flex-row sm:items-start sm:justify-between",
+                          isDark
+                            ? "border-white/10 bg-white/5 text-zinc-200"
+                            : "border-black/10 bg-white text-zinc-800",
+                          paymentPlan === CUSTOM_PAYMENT_PLAN_VALUE && (isDark ? "border-red-400/40 bg-red-500/10" : "border-red-200 bg-red-50"),
+                        ].join(" ")}
+                      >
+                        <span className="flex-1">
+                          <span className={"block font-semibold"}>Custom months</span>
+                          <span className={"mt-1 block text-xs leading-5"}>
+                            Choose a flexible plan from {MIN_CUSTOM_PAYMENT_MONTHS} to {24} months.
+                          </span>
+                          <input
+                            type="number"
+                            min={MIN_CUSTOM_PAYMENT_MONTHS}
+                            max={24}
+                            value={customPaymentMonths}
+                            onChange={(e) => {
+                              setCustomPaymentMonths(e.target.value)
+                              setPaymentPlan(CUSTOM_PAYMENT_PLAN_VALUE)
+                            }}
+                            onFocus={() => setPaymentPlan(CUSTOM_PAYMENT_PLAN_VALUE)}
+                            onBlur={() => {
+                              const months = Number(customPaymentMonths)
+                              if (!Number.isFinite(months)) {
+                                setCustomPaymentMonths(String(MIN_CUSTOM_PAYMENT_MONTHS))
+                                return
+                              }
+                              setCustomPaymentMonths(
+                                String(Math.min(MAX_CUSTOM_PAYMENT_MONTHS, Math.max(MIN_CUSTOM_PAYMENT_MONTHS, Math.round(months))))
+                              )
+                            }}
+                            className={[
+                              "mt-3 h-10 w-full rounded-lg px-3 text-sm outline-none focus:border-red-400/50 sm:max-w-[180px]",
+                              isDark
+                                ? "border border-white/10 bg-zinc-950 text-white"
+                                : "border border-black/10 bg-white text-zinc-900",
+                            ].join(" ")}
+                            placeholder="16"
+                          />
+                        </span>
+                        <input
+                          type="radio"
+                          name="payment_plan"
+                          value={CUSTOM_PAYMENT_PLAN_VALUE}
+                          checked={paymentPlan === CUSTOM_PAYMENT_PLAN_VALUE}
+                          onChange={(e) => handlePaymentPlanChange(e.target.value)}
+                          className="mt-1 accent-red-500"
+                        />
+                      </label>
                     </div>
 
                     
@@ -737,13 +873,17 @@ export default function Cart() {
                         </div>
                       </div>
                       <p className={"mt-2 text-xs leading-5"}>
-                        {paymentPlanDetails.addedInterest > 0
-                          ? `${paymentPlanDetails.label} adds ${peso(paymentPlanDetails.addedInterest)} across ${paymentPlanDetails.months} monthly payments after your down payment.`
-                          : `${paymentPlanDetails.label} is interest-free for this promotion after your down payment.`}
+                        {paymentType === "cash"
+                          ? paymentPlanDetails.addedInterest > 0
+                            ? `${paymentPlanDetails.label} adds ${peso(paymentPlanDetails.addedInterest)} across ${paymentPlanDetails.months} monthly payments. No online down payment is required for cash payment.`
+                            : `${paymentPlanDetails.label} is interest-free for this promotion. No online down payment is required for cash payment.`
+                          : paymentPlanDetails.addedInterest > 0
+                            ? `${paymentPlanDetails.label} adds ${peso(paymentPlanDetails.addedInterest)} across ${paymentPlanDetails.months} monthly payments after your down payment.`
+                            : `${paymentPlanDetails.label} is interest-free for this promotion after your down payment.`}
                       </p>
                     </div>
                     
-                {(paymentMethod === "gcash" || paymentMethod === "bank_transfer") && (
+                {paymentType === "online" && (paymentMethod === "gcash" || paymentMethod === "bank_transfer") && (
                   <>
                     <Field label={paymentMethod === "gcash" ? "GCash payment details" : "Bank transfer payment details"} isDark={isDark}>
                       <div

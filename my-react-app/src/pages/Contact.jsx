@@ -219,6 +219,52 @@ export default function Contact() {
             )}
           </div>
         </section>
+
+        <section className={[
+          "overflow-hidden rounded-3xl p-5 sm:p-6",
+          isDark
+            ? "border border-white/10 bg-zinc-950/85 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+            : "border border-black/10 bg-white/90 shadow-[0_14px_40px_rgba(17,24,39,0.10)]",
+        ].join(" ")}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                Store map
+              </p>
+              <h2 className={["mt-2 text-xl font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                Visit SPEEGO E-bikes
+              </h2>
+              <p className={["mt-2 text-sm leading-6", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
+                Use the map below to find our physical store in Talavera, Nueva Ecija.
+              </p>
+            </div>
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=SpeeGo%20E-bikes%20Talavera%20Nueva%20Ecija"
+              target="_blank"
+              rel="noreferrer"
+              className={[
+                "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition",
+                isDark
+                  ? "border border-white/10 bg-white/5 text-zinc-100 hover:bg-white/10"
+                  : "border border-black/10 bg-black/5 text-zinc-800 hover:bg-black/10",
+              ].join(" ")}
+            >
+              Open in Google Maps
+            </a>
+          </div>
+
+          <div className={["mt-5 overflow-hidden rounded-2xl", isDark ? "border border-white/10 bg-black" : "border border-black/10 bg-zinc-100"].join(" ")}>
+            <iframe
+              title="SpeeGo E-bikes Google Maps location"
+              src="https://www.google.com/maps/embed?pb=!1m16!1m11!1m3!1d3!2d120.9199321!3d15.5949315!2m2!1f0!2f90!3m2!1i1024!2i768!4f75!3m3!1m2!1s0x33972b000d4db9bb%3A0x74ee2789de334735!2sSpeeGo%20E-bikes!4v1786438981182"
+              className="h-[320px] w-full sm:h-[420px]"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          </div>
+        </section>
       </div>
     </div>
   )

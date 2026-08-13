@@ -179,7 +179,7 @@ export default function Shop() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
                 ["Variants", "Per-color stock"],
-                ["Checkout", "6 months interest-free"],
+                ["Checkout", "Payment Plans"],
                 ["Support", "SPEEGO E-bikes"],
               ].map(([label, value]) => (
                 <div
@@ -193,6 +193,49 @@ export default function Shop() {
                     {label}
                   </div>
                   <div className={["mt-1 text-sm font-semibold", isDark ? "text-zinc-100" : "text-zinc-900"].join(" ")}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className={[
+          "mb-6 overflow-hidden rounded-2xl border p-4 sm:p-5",
+          isDark
+            ? "border-red-400/25 bg-gradient-to-r from-red-950/70 via-zinc-950 to-black shadow-[0_18px_50px_rgba(127,29,29,0.24)]"
+            : "border-red-200 bg-gradient-to-r from-red-50 via-white to-zinc-50 shadow-[0_14px_40px_rgba(127,29,29,0.10)]",
+        ].join(" ")}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className={["inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.16em]", isDark ? "bg-red-500/15 text-red-100" : "bg-red-100 text-red-700"].join(" ")}>
+                Current financing promo
+              </div>
+              <h3 className={["mt-3 text-2xl font-black tracking-tight sm:text-3xl", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                Ride now with 6 months interest-free
+              </h3>
+              <p className={["mt-2 max-w-3xl text-sm leading-6", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
+                Start with at least 20% down payment, then upload your GCash or bank transfer proof at checkout for manager verification.
+              </p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
+              {[
+                ["0%", "Interest", "6-month plan"],
+                ["20%", "Down payment", "Minimum required"],
+                ["2 ways", "GCash or bank", "Proof upload"],
+              ].map(([value, label, sub]) => (
+                <div
+                  key={label}
+                  className={[
+                    "rounded-xl border px-4 py-3",
+                    isDark ? "border-white/10 bg-white/5" : "border-black/10 bg-white/80",
+                  ].join(" ")}
+                >
+                  <div className="text-2xl font-black text-red-400">{value}</div>
+                  <div className={["mt-1 text-xs font-bold uppercase tracking-[0.12em]", isDark ? "text-zinc-200" : "text-zinc-800"].join(" ")}>
+                    {label}
+                  </div>
+                  <div className={["mt-1 text-xs", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>{sub}</div>
                 </div>
               ))}
             </div>
@@ -360,6 +403,340 @@ function StockBadge({ stock, selectedColor, isDark }) {
   )
 }
 
+function FinancingBadges({ isDark, compact = false }) {
+  const badges = [
+    ["6 months", "Interest-free"],
+    ["20%", "Min. down payment"],
+    ["GCash / Bank", "Payment proof accepted"],
+  ]
+
+  return (
+    <div className={["flex flex-wrap gap-2", compact ? "mt-2" : "mt-4"].join(" ")}>
+      {badges.map(([label, text]) => (
+        <span
+          key={label}
+          className={[
+            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+            isDark
+              ? "border-red-400/25 bg-red-500/10 text-red-100"
+              : "border-red-200 bg-red-50 text-red-700",
+          ].join(" ")}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+          <span>{label}</span>
+          <span className={isDark ? "text-zinc-300" : "text-zinc-600"}>{text}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function StarDisplay({ rating, interactive = false, onChange = null, isDark, size = "md" }) {
+  const sizeClass = size === "lg" ? "text-3xl" : size === "sm" ? "text-base" : "text-xl"
+
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => {
+        const active = star <= Number(rating || 0)
+        const className = [
+          "appearance-none border-0 bg-transparent p-0 leading-none shadow-none transition",
+          sizeClass,
+          active ? "text-amber-300" : isDark ? "text-zinc-700" : "text-zinc-300",
+          interactive ? "cursor-pointer hover:scale-110 hover:text-amber-300" : "",
+        ].join(" ")
+
+        if (interactive) {
+          return (
+            <button
+              key={star}
+              type="button"
+              onClick={() => onChange?.(star)}
+              className={className}
+              aria-label={`${star} star${star > 1 ? "s" : ""}`}
+            >
+              ★
+            </button>
+          )
+        }
+
+        return (
+          <span key={star} className={className}>
+            ★
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function ProductReviews({ product, isDark, onNotify = null, className = "" }) {
+  const [reviews, setReviews] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  const [ratingFilter, setRatingFilter] = useState("all")
+  const [rating, setRating] = useState(5)
+  const [comment, setComment] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [hasPurchased, setHasPurchased] = useState(false)
+  const [checkingPurchase, setCheckingPurchase] = useState(true)
+
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (!product?.id) return
+      setLoading(true)
+
+      const { data, error } = await supabase
+        .from("product_reviews")
+        .select("*")
+        .eq("product_id", product.id)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Load product reviews error:", error)
+        setReviews([])
+      } else {
+        setReviews(data || [])
+      }
+
+      setLoading(false)
+    }
+
+    loadReviews()
+  }, [product?.id])
+
+  useEffect(() => {
+    const checkPurchaseHistory = async () => {
+      if (!product?.id) return
+      setCheckingPurchase(true)
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setHasPurchased(false)
+        setCheckingPurchase(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("order_items")
+        .select("id, orders!inner(user_id)")
+        .eq("product_id", product.id)
+        .eq("orders.user_id", user.id)
+        .limit(1)
+
+      if (error) {
+        console.error("Check review purchase history error:", error)
+        setHasPurchased(false)
+      } else {
+        setHasPurchased((data || []).length > 0)
+      }
+
+      setCheckingPurchase(false)
+    }
+
+    checkPurchaseHistory()
+  }, [product?.id])
+
+  const averageRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length
+      : 0
+  const filteredReviews =
+    ratingFilter === "all"
+      ? reviews
+      : reviews.filter((review) => Number(review.rating || 0) === Number(ratingFilter))
+  const visibleReviews = expanded ? filteredReviews : filteredReviews.slice(0, 3)
+  const hasMore = filteredReviews.length > 3
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault()
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      onNotify?.("Please log in before leaving a review.", "error")
+      return
+    }
+
+    if (!hasPurchased) {
+      onNotify?.("Only customers who ordered this product can leave a review.", "error")
+      return
+    }
+
+    setSubmitting(true)
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single()
+
+    const { data, error } = await supabase
+      .from("product_reviews")
+      .insert({
+        product_id: product.id,
+        user_id: user.id,
+        reviewer_name: profile?.full_name?.trim() || user.email || "Customer",
+        rating,
+        comment: comment.trim(),
+      })
+      .select()
+      .single()
+
+    setSubmitting(false)
+
+    if (error) {
+      console.error("Submit product review error:", error)
+      onNotify?.(error.message || "Failed to submit review.", "error")
+      return
+    }
+
+    setReviews((current) => [data, ...current])
+    setComment("")
+    setRating(5)
+    setRatingFilter("all")
+    onNotify?.("Thank you. Your review was posted.", "success")
+  }
+
+  return (
+    <section className={[
+      "rounded-2xl p-4",
+      isDark ? "border border-black bg-black" : "border border-black/10 bg-zinc-50",
+      className,
+    ].join(" ")}>
+      <p className={["text-sm font-bold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Customer reviews</p>
+      <div className="mt-1 flex items-center gap-2">
+        <StarDisplay rating={Math.round(averageRating)} isDark={isDark} size="lg" />
+        <span className={["text-xs", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+          {reviews.length ? `${averageRating.toFixed(1)} out of 5 (${reviews.length})` : "No reviews yet"}
+        </span>
+      </div>
+
+      {reviews.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {["all", 5, 4, 3, 2, 1].map((option) => {
+            const active = String(ratingFilter) === String(option)
+            const count = option === "all"
+              ? reviews.length
+              : reviews.filter((review) => Number(review.rating || 0) === Number(option)).length
+
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  setRatingFilter(option)
+                  setExpanded(false)
+                }}
+                className={[
+                  "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                  active
+                    ? "border-red-400 bg-red-600 text-white"
+                    : isDark ? "border-black bg-zinc-950 text-zinc-300 hover:border-red-400/40" : "border-black/10 bg-white text-zinc-700 hover:border-red-300",
+                ].join(" ")}
+              >
+                {option === "all" ? "All" : `${option} star`} ({count})
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {loading ? (
+        <p className={["mt-3 text-sm", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>Loading reviews...</p>
+      ) : visibleReviews.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {visibleReviews.map((review) => (
+            <article
+              key={review.id}
+              className={[
+                "rounded-xl border p-3",
+                isDark ? "border-white/10 bg-black/25" : "border-black/10 bg-white",
+              ].join(" ")}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className={["text-xs font-semibold", isDark ? "text-zinc-200" : "text-zinc-800"].join(" ")}>
+                  {review.reviewer_name || "Customer"}
+                </p>
+                <StarDisplay rating={review.rating} isDark={isDark} />
+              </div>
+              <p className={["mt-2 whitespace-pre-line text-sm leading-6", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
+                {review.comment || "No comment provided."}
+              </p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className={["mt-3 text-sm", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+          {reviews.length ? "No reviews match this star filter." : "Be the first customer to review this product."}
+        </p>
+      )}
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className={[
+            "mt-3 rounded-lg px-3 py-2 text-xs font-semibold transition",
+            isDark ? "border border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10" : "border border-black/10 bg-black/5 text-zinc-800 hover:bg-black/10",
+          ].join(" ")}
+        >
+          {expanded ? "Show latest 3 comments" : "View all comments"}
+        </button>
+      )}
+
+      <form onSubmit={handleSubmitReview} className="mt-4 space-y-3">
+        {checkingPurchase ? (
+          <p className={["rounded-xl border px-3 py-2 text-sm", isDark ? "border-black bg-zinc-950 text-zinc-400" : "border-black/10 bg-white text-zinc-500"].join(" ")}>
+            Checking your purchase history...
+          </p>
+        ) : !hasPurchased ? (
+          <p className={["rounded-xl border px-3 py-2 text-sm", isDark ? "border-black bg-zinc-950 text-zinc-400" : "border-black/10 bg-white text-zinc-500"].join(" ")}>
+            Reviews are available only for customers who ordered this product.
+          </p>
+        ) : null}
+
+        <div>
+          <p className={["mb-2 text-xs font-semibold uppercase tracking-[0.14em]", isDark ? "text-zinc-400" : "text-zinc-500"].join(" ")}>
+            Leave a review
+          </p>
+          <StarDisplay rating={rating} interactive onChange={setRating} isDark={isDark} size="lg" />
+        </div>
+
+        <textarea
+          rows={3}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          maxLength={1000}
+          placeholder="Optional: share your experience with this product..."
+          className={[
+            "w-full rounded-xl px-3 py-2 text-sm outline-none transition focus:border-red-400/60 focus:ring-2 focus:ring-red-500/20",
+            isDark ? "border border-black bg-zinc-950 text-white placeholder:text-zinc-500" : "border border-black/10 bg-white text-zinc-900 placeholder:text-zinc-400",
+          ].join(" ")}
+        />
+
+        <button
+          type="submit"
+          disabled={submitting || checkingPurchase || !hasPurchased}
+          className={[
+            "rounded-xl border px-4 py-2 text-sm font-semibold transition",
+            submitting || checkingPurchase || !hasPurchased
+              ? isDark ? "cursor-not-allowed border-white/10 bg-white/5 text-zinc-500" : "cursor-not-allowed border-black/10 bg-black/5 text-zinc-500"
+              : "border-red-500 bg-red-600 text-white hover:bg-red-500",
+          ].join(" ")}
+        >
+          {submitting ? "Submitting..." : "Submit review"}
+        </button>
+      </form>
+    </section>
+  )
+}
+
 function ProductCard({ product, addToCart, onAdded, onNotify, isRecentlyAdded, onOpenQuickView, isDark }) {
   const [qty, setQty] = useState(1)
   const navigate = useNavigate()
@@ -513,6 +890,7 @@ function ProductCard({ product, addToCart, onAdded, onNotify, isRecentlyAdded, o
         <div>
           <h3 className={["text-lg font-bold tracking-tight", isDark ? "text-white" : "text-zinc-900"].join(" ")}>{product.name}</h3>
           <p className="mt-1 text-sm font-semibold text-red-300">{formatPrice(product.price)}</p>
+          <FinancingBadges isDark={isDark} compact />
         </div>
         <button
           type="button"
@@ -751,11 +1129,19 @@ function QuickViewModal({ product, initialColor, onClose, addToCart, onAdded, on
                 })}
               </div>
             )}
+
+            <ProductReviews
+              product={product}
+              isDark={isDark}
+              onNotify={onNotify}
+              className="mt-6 hidden lg:block"
+            />
           </div>
 
           <div className="p-4 sm:p-6">
             <h3 className={["text-2xl font-bold tracking-tight sm:text-3xl", isDark ? "text-white" : "text-zinc-900"].join(" ")}>{product.name}</h3>
             <p className="mt-2 text-lg font-semibold text-red-300">{formatPrice(product.price)}</p>
+            <FinancingBadges isDark={isDark} />
             <p className={["mt-4 whitespace-pre-line text-sm leading-7", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
               {product.description || "No description provided."}
             </p>
@@ -812,6 +1198,13 @@ function QuickViewModal({ product, initialColor, onClose, addToCart, onAdded, on
                 </button>
               </div>
             </div>
+
+            <ProductReviews
+              product={product}
+              isDark={isDark}
+              onNotify={onNotify}
+              className="mt-6 lg:hidden"
+            />
 
             <p className="mt-4 text-xs leading-6 text-zinc-500">
               Pick your preferred color by clicking the photos, then choose quantity and add to

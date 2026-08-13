@@ -15,6 +15,10 @@ import { getOrderStatusReply } from "../chatbot/orderResponder"
 import { supabase } from "../services/supabaseClient"
 import { requireCustomerProfile } from "../utils/requireCustomerProfile"
 
+const EXTRA_MONTH_INTEREST_RATE = 0.0125
+const MIN_CUSTOM_PAYMENT_MONTHS = 13
+const MAX_CUSTOM_PAYMENT_MONTHS = 36
+
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
@@ -155,8 +159,12 @@ function getOrderIntent(message) {
 }
 
 function isInitialOrderPrompt(message) {
-  const msg = normalizeText(message)
+  const msg = normalizeText(message).replace(/-/g, " ").replace(/\s+/g, " ").trim()
   return (
+    msg === "i want to order an e bike" ||
+    msg === "i want to order an ebike" ||
+    msg === "i want to buy an e bike" ||
+    msg === "i want to buy an ebike" ||
     msg === "order an e bike through speego ai" ||
     msg === "order an ebike through speego ai" ||
     msg === "buy an e bike through speego ai" ||
@@ -165,6 +173,7 @@ function isInitialOrderPrompt(message) {
     msg === "order an ebike" ||
     msg === "buy an e bike" ||
     msg === "buy an ebike" ||
+    /^(i\s+)?(want to|would like to)?\s*(order|buy)( an?)?( e bike| ebike| electric bike)( through speego ai)?$/.test(msg) ||
     /^(order|buy)( an)?( e bike| ebike)?( through speego ai)?$/.test(msg)
   )
 }
@@ -208,10 +217,15 @@ function isProductPreferenceMessage(message) {
   return /(?:^|\s)(i\s+like|i\s+love|i\s+prefer|like|love|prefer|want something like|something like|similar to)/.test(msg)
 }
 
+function isSimilarPreferenceMessage(message) {
+  const msg = normalizeText(message)
+  return /\b(want something like|something like|similar to|alternative|instead|same as|like .* but|like .* cheaper|like .* lower price)\b/.test(msg)
+}
+
 function getSimilarPreferenceProducts(products, message, baseProduct) {
   const list = Array.isArray(products) ? products : []
   const msg = normalizeText(message)
-  if (!baseProduct || !msg || !isProductPreferenceMessage(message)) return []
+  if (!baseProduct || !msg || !isSimilarPreferenceMessage(message)) return []
 
   const baseName = normalizeText(baseProduct?.name || "")
   const baseWheel = inferWheelType(baseProduct)
@@ -346,8 +360,103 @@ function getMonthlyPayment(price, months = 6) {
   return balance > 0 ? balance / months : 0
 }
 
+function getPaymentPlanDetails(price, months = 6) {
+  const safeMonths = Number.isFinite(Number(months)) ? Math.max(1, Math.round(Number(months))) : 6
+  const downPayment = getDownPayment(price)
+  const balance = Math.max(0, Number(price || 0) - downPayment)
+  const extraMonths = Math.max(0, safeMonths - 6)
+  const interestRate = extraMonths > 0 ? extraMonths * EXTRA_MONTH_INTEREST_RATE : 0
+  const addedInterest = balance * interestRate
+  const totalWithInterest = balance + addedInterest
+  const monthlyPayment = totalWithInterest > 0 ? totalWithInterest / safeMonths : 0
+
+  return {
+    months: safeMonths,
+    downPayment,
+    balance,
+    interestRate,
+    addedInterest,
+    totalWithInterest,
+    monthlyPayment,
+  }
+}
+
+function getRequestedPaymentMonths(message) {
+  const msg = normalizeText(message)
+  if (/\b(1 year|one year|12 months|twelve months|12 month)\b/.test(msg)) return 12
+  if (/\b(9 months|nine months|9 month|nine month)\b/.test(msg)) return 9
+  if (/\b(6 months|six months|6 month|six month)\b/.test(msg)) return 6
+
+  const match = msg.match(/\b(?:pay for|payment plan for|plan for|for|over|in)\s*(\d{1,2})\s*(?:months?|mos?)\b/)
+  if (!match) return null
+
+  const months = Number(match[1])
+  return Number.isFinite(months) ? months : null
+}
+
 function productSummary(product) {
   return `${product.name} - ${formatPeso(product.price)}`
+}
+
+function findProductByNameHint(products, pattern) {
+  return (products || []).find((product) => pattern.test(normalizeText(product?.name || ""))) || null
+}
+
+function getOpenRecommendationProducts(products) {
+  const list = Array.isArray(products) ? products : []
+  const familyOrBusiness = list.find(isFourWheelSolarProduct)
+  const budget = getCheapestProducts(list, 1)[0]
+  const commuting = findProductByNameHint(list, /eco sports/) || list.find((product) => inferWheelType(product) === "3-wheel")
+  const delivery = findProductByNameHint(list, /q5/) || list.find((product) => inferWheelType(product) === "3-wheel" && product?.id !== commuting?.id)
+
+  return [familyOrBusiness, budget, commuting, delivery]
+    .filter(Boolean)
+    .filter((product, index, allProducts) => allProducts.findIndex((entry) => entry.id === product.id) === index)
+}
+
+function asksOpenEndedRecommendation(message) {
+  const msg = normalizeText(message)
+  return (
+    /^(any\s+)?(other\s+|another\s+|more\s+)?recommendations?$/.test(msg) ||
+    /^(can you\s+)?(recommend|suggest)( one| something)?$/.test(msg) ||
+    /^(please\s+)?(recommend|suggest)( me)?( an?| some)?\s*(e bike|ebike|electric bike|bike)?$/.test(msg) ||
+    /\b(any other recommendation|another recommendation|other recommendation|more recommendation)\b/.test(msg)
+  )
+}
+
+function asksForAnotherRecommendation(message) {
+  const msg = normalizeText(message)
+  return /\b(any other|another|other recommendation|more recommendation|else)\b/.test(msg)
+}
+
+function getOpenEndedRecommendationReply(products, matchedProduct = null, message = "") {
+  const list = Array.isArray(products) ? products : []
+  const availableProducts = list.filter((product) => getTotalStock(product) > 0)
+  const sourceProducts = availableProducts.length ? availableProducts : list
+  if (!sourceProducts.length) return null
+
+  if (matchedProduct && asksForAnotherRecommendation(message)) {
+    const alternatives = sourceProducts
+      .filter((product) => product.id !== matchedProduct.id)
+      .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))
+      .slice(0, 3)
+
+    if (alternatives.length) {
+      return {
+        from: "bot",
+        text: `Sure. Other options you can compare are: ${alternatives.map(productSummary).join(" | ")}. EcoSada is the budget-friendly choice, ECO SPORTS V2 works well for daily commuting, SPEEGO Q5 is a stronger 3-wheel option, and SpeeGo 4 Wheel Solar fits family or business use best.`,
+      }
+    }
+  }
+
+  const startingPoints = getOpenRecommendationProducts(sourceProducts)
+  const fallback = sourceProducts.slice(0, 4)
+  const options = startingPoints.length ? startingPoints : fallback
+
+  return {
+    from: "bot",
+    text: `Sure. Good starting points are: ${options.map(productSummary).join(" | ")}. For family or business use, start with SpeeGo 4 Wheel Solar. For budget or errands, EcoSada V2 is a good pick. For commuting, ECO SPORTS V2 is practical. What will you use it for, or what budget are you working with?`,
+  }
 }
 
 function _getProductFeatures(product, limit = 4) {
@@ -498,7 +607,8 @@ function asksAboutPayment(message) {
 }
 
 function asksGeneralPaymentQuestion(message) {
-  return /\b(gcash|bank transfer|accept|using bank|pay using|interest free|1 year|one year|9 months|nine months|payment plan)\b/.test(message)
+  return /\b(gcash|bank transfer|accept|using bank|pay using|interest free|1 year|one year|9 months|nine months|12 months|twelve months|payment plan)\b/.test(message) ||
+    getRequestedPaymentMonths(message) != null
 }
 
 function asksAboutAvailability(message) {
@@ -514,7 +624,7 @@ function asksForCheaperSimilar(message) {
 }
 
 function asksForSimilarProduct(message) {
-  return /\b(similar|like|alternative|instead|same as)\b/.test(message)
+  return /\b(similar|alternative|instead|same as|something like|like .* but|like .* cheaper|like .* lower price)\b/.test(message)
 }
 
 function asksToCompareProducts(message) {
@@ -612,6 +722,22 @@ function getCommonQuestionReply(message, products, matchedProduct) {
   }
 
   if (asksAboutPayment(msg)) {
+    const requestedPaymentMonths = getRequestedPaymentMonths(msg)
+
+    if (matchedProduct && requestedPaymentMonths) {
+      const plan = getPaymentPlanDetails(matchedProduct.price, requestedPaymentMonths)
+      const hasAddedInterest = plan.addedInterest > 0
+      const customNote =
+        requestedPaymentMonths > 12
+          ? ` Custom plans are available from ${MIN_CUSTOM_PAYMENT_MONTHS} to ${MAX_CUSTOM_PAYMENT_MONTHS} months.`
+          : ""
+
+      return {
+        from: "bot",
+        text: `Yes, ${requestedPaymentMonths} months is okay for ${matchedProduct.name}.${customNote} Price is ${formatPeso(matchedProduct.price)}. Minimum down payment is ${formatPeso(plan.downPayment)}. ${hasAddedInterest ? `Added interest is ${formatPeso(plan.addedInterest)} for this plan.` : "The 6-month promo plan is interest-free."} Estimated ${requestedPaymentMonths}-month payment after down payment is ${formatPeso(plan.monthlyPayment)} per month. We accept GCash and bank transfer proof of payment.`,
+      }
+    }
+
     if (asksGeneralPaymentQuestion(msg)) {
       if (/\b(6 months|six months|6 month|six month|interest free)\b/.test(msg)) {
         return {
@@ -631,6 +757,13 @@ function getCommonQuestionReply(message, products, matchedProduct) {
         return {
           from: "bot",
           text: "The 9-month payment plan is available, but it includes added interest. The minimum down payment is 20%, then the remaining balance is divided across 9 months.",
+        }
+      }
+
+      if (requestedPaymentMonths && requestedPaymentMonths > 12) {
+        return {
+          from: "bot",
+          text: `Yes, a ${requestedPaymentMonths}-month custom payment plan is available as long as it is between ${MIN_CUSTOM_PAYMENT_MONTHS} and ${MAX_CUSTOM_PAYMENT_MONTHS} months. It includes added interest, and the minimum down payment is 20% of the order total. Tell me the model you want and I can estimate the monthly payment.`,
         }
       }
 
@@ -708,6 +841,10 @@ function getCommonQuestionReply(message, products, matchedProduct) {
         links: getProductLinks(similarProducts[0]),
       }
     }
+  }
+
+  if (asksOpenEndedRecommendation(msg)) {
+    return getOpenEndedRecommendationReply(availableProducts.length ? availableProducts : list, matchedProduct, msg)
   }
 
   if (asksForRecommendation(msg) && matchedProduct && !mentionsProductName(msg, matchedProduct)) {
@@ -788,6 +925,11 @@ function getCommonQuestionReply(message, products, matchedProduct) {
   }
 
   if (asksForRecommendation(msg)) {
+    const signals = getPreferenceSignals(msg)
+    if (!signals.mentionsType && !signals.mentionsBudget && !signals.wantsThreeWheel && !signals.wantsFourWheel) {
+      return getOpenEndedRecommendationReply(availableProducts.length ? availableProducts : list, null, msg)
+    }
+
     const recommendations = getRecommendedProducts(list, message)
     if (recommendations.length > 0) {
       const top = recommendations[0]
@@ -1193,7 +1335,7 @@ What's most important to you?`,
             from: "bot",
             text: "I’d be happy to help you shop for an e-bike. Tell me what you want, your budget, or how you’ll use it, and I’ll guide you to the best fit.",
           }
-        } else if (incomingProductMatch?.id && incomingProductMatch.id !== nextSession.productId) {
+        } else if (incomingProductMatch?.id && (incomingProductMatch.id !== nextSession.productId || !isSimilarPreferenceMessage(userMsg))) {
           nextSession.step = "awaiting_color"
           nextSession.productId = incomingProductMatch.id
           nextSession.color = null
