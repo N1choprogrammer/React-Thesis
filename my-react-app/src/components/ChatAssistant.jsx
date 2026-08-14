@@ -19,6 +19,50 @@ const EXTRA_MONTH_INTEREST_RATE = 0.0125
 const MIN_CUSTOM_PAYMENT_MONTHS = 13
 const MAX_CUSTOM_PAYMENT_MONTHS = 36
 
+const sendMessageToOpenAI = async (
+  message,
+  products = [],
+  conversationMessages = []
+) => {
+  const productContext = products.map((product) => ({
+    id: product.id,
+    short_id: product.short_id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    stock: product.stock,
+    colors: product.product_color_stock || [],
+  }))
+
+  const conversationHistory = conversationMessages
+    .map((msg) => ({
+      role: msg.from === "bot" ? "assistant" : "user",
+      content: String(msg.text || ""),
+    }))
+    .filter((msg) => msg.content.trim() !== "")
+    .slice(-12)
+
+  const response = await fetch("http://localhost:3000/api/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+  message,
+  products: productContext,
+  conversationHistory,
+}),
+  })
+
+  if (!response.ok) {
+    throw new Error("Failed to communicate with AI backend")
+  }
+
+  const data = await response.json()
+
+  return data.reply
+}
+
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
@@ -1294,7 +1338,35 @@ What's most important to you?`,
         setSending(false)
         return
       }
+const shouldUseGenerativeAI =
+  !initialOrderPrompt &&
+  !orderFlowActive &&
+  !getOrderIntent(userMsg)
 
+if (shouldUseGenerativeAI) {
+  try {
+    const aiReply = await sendMessageToOpenAI(
+  userMsg,
+  catalogProducts,
+  messages
+)
+
+    await new Promise((resolve) => setTimeout(resolve, 700))
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "bot",
+        text: aiReply,
+      },
+    ])
+
+    setSending(false)
+    return
+  } catch (error) {
+    console.error("OpenAI generative response failed:", error)
+  }
+}
       if (!initialOrderPrompt && (!getOrderIntent(userMsg) || isInformationalQuestion(normalizedUserMsg))) {
         const commonQuestionReply = getCommonQuestionReply(normalizedUserMsg, catalogProducts, matchedProduct)
 
@@ -1315,6 +1387,38 @@ What's most important to you?`,
           }
           await new Promise((resolve) => setTimeout(resolve, 700))
           setMessages((prev) => [...prev, commonQuestionReply])
+          setSending(false)
+          return
+        }
+                // OpenAI generative fallback
+        try {
+          const aiReply = await sendMessageToOpenAI(
+  userMsg,
+  catalogProducts,
+  messages
+)
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              from: "bot",
+              text: aiReply,
+            },
+          ])
+
+          setSending(false)
+          return
+        } catch (error) {
+          console.error("OpenAI fallback failed:", error)
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              from: "bot",
+              text: "I'm sorry, I couldn't process that question right now. Please try asking about our e-bike models, prices, or available options.",
+            },
+          ])
+
           setSending(false)
           return
         }
