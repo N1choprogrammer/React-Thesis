@@ -1,5 +1,5 @@
 // src/components/ChatAssistant.jsx
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import intents from "../chatbot/intents.json"
 import { getSpeegoBotReply } from "../chatbot/engine"
@@ -22,25 +22,31 @@ const MAX_CUSTOM_PAYMENT_MONTHS = 36
 const sendMessageToOpenAI = async (
   message,
   products = [],
-  conversationMessages = []
+  conversationHistory = []
 ) => {
-  const productContext = products.map((product) => ({
-    id: product.id,
-    short_id: product.short_id,
-    name: product.name,
-    description: product.description,
-    price: product.price,
-    stock: product.stock,
-    colors: product.product_color_stock || [],
-  }))
+  const productContext = products.map((product) => {
+    const downPayment = getDownPayment(product.price)
+    const monthlyPayment = getMonthlyPayment(product.price, 6)
 
-  const conversationHistory = conversationMessages
-    .map((msg) => ({
-      role: msg.from === "bot" ? "assistant" : "user",
-      content: String(msg.text || ""),
-    }))
-    .filter((msg) => msg.content.trim() !== "")
-    .slice(-12)
+    return {
+      id: product.id,
+      short_id: product.short_id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      stock: product.stock,
+      colors: product.product_color_stock || [],
+
+      payment: {
+        downPayment,
+        months: 6,
+        monthlyPayment,
+      },
+    }
+  })
+
+  console.log("AI Product Context:", productContext)
+  console.log("Q5 Payment:", productContext.find((p) => p.name === "SPEEGO Q5")?.payment)
 
   const response = await fetch("http://localhost:3000/api/chat", {
     method: "POST",
@@ -48,10 +54,10 @@ const sendMessageToOpenAI = async (
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-  message,
-  products: productContext,
-  conversationHistory,
-}),
+      message,
+      products: productContext,
+      conversationHistory,
+    }),
   })
 
   if (!response.ok) {
@@ -224,6 +230,34 @@ function isInitialOrderPrompt(message) {
 
 function getDownPayment(price) {
   return Math.ceil(Number(price || 0) * 0.2)
+}
+function getCurrentProduct(
+  catalogProducts,
+  aiOrderSession,
+  matchedProduct,
+  lastProductContextId
+) {
+  if (matchedProduct) {
+    return matchedProduct
+  }
+
+  if (aiOrderSession?.productId) {
+    const orderProduct = catalogProducts.find(
+      (p) => p.id === aiOrderSession.productId
+    )
+
+    if (orderProduct) {
+      return orderProduct
+    }
+  }
+
+  if (lastProductContextId) {
+    return catalogProducts.find(
+      (p) => p.id === lastProductContextId
+    )
+  }
+
+  return null
 }
 
 function getBudgetHint(message) {
@@ -430,6 +464,22 @@ function getRequestedPaymentMonths(message) {
   if (/\b(1 year|one year|12 months|twelve months|12 month)\b/.test(msg)) return 12
   if (/\b(9 months|nine months|9 month|nine month)\b/.test(msg)) return 9
   if (/\b(6 months|six months|6 month|six month)\b/.test(msg)) return 6
+
+function getCurrentProduct(
+  catalogProducts,
+  aiOrderSession,
+  matchedProduct
+) {
+  if (matchedProduct) return matchedProduct
+
+  if (aiOrderSession?.productId) {
+    return catalogProducts.find(
+      (p) => p.id === aiOrderSession.productId
+    )
+  }
+
+  return null
+}
 
   const match = msg.match(/\b(?:pay for|payment plan for|plan for|for|over|in)\s*(\d{1,2})\s*(?:months?|mos?)\b/)
   if (!match) return null
@@ -1070,6 +1120,7 @@ What's most important to you?`,
   const [catalogProducts, setCatalogProducts] = useState([])
   const [typingFrame, setTypingFrame] = useState(0)
   const [lastProductContextId, setLastProductContextId] = useState(null)
+  const lastProductContextIdRef = useRef(null)
   const [aiOrderSession, setAiOrderSession] = useState({
     step: "idle",
     productId: null,
@@ -1135,6 +1186,7 @@ What's most important to you?`,
     const handleProductContext = (event) => {
       const productId = event?.detail?.id || null
       if (productId) {
+        lastProductContextIdRef.current = productId
         setLastProductContextId(productId)
       }
     }
@@ -1276,30 +1328,57 @@ What's most important to you?`,
     setSending(false)
   }
 
-  const handleSendMessage = async (rawMessage, options = {}) => {
-    const { skipUserMessage = false } = options
-    const userMsg = String(rawMessage || "").trim()
-    if (!userMsg) return
+    const handleSendMessage = async (rawMessage, options = {}) => {
+      const { skipUserMessage = false } = options
+      const userMsg = String(rawMessage || "").trim()
+      if (!userMsg) return
 
-    if (!skipUserMessage) {
-      setMessages((prev) => [...prev, { from: "user", text: userMsg }])
-    }
-    setMessage("")
-    setSending(true)
+      if (!skipUserMessage) {
+        setMessages((prev) => [...prev, { from: "user", text: userMsg }])
+      }
+      setMessage("")
+      setSending(true)
 
-    try {
-      const normalizedUserMsg = normalizeText(userMsg)
-      const orderFlowActive = aiOrderSession.step !== "idle"
-      const initialOrderPrompt = isInitialOrderPrompt(userMsg)
-      const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
-      const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
-      const contextProduct = catalogProducts.find(
-        (entry) => entry.id === aiOrderSession.productId || entry.id === lastProductContextId
-      )
-      const matchedProduct = directProductMatch || (isInformationalQuestion(normalizedUserMsg) ? contextProduct : null)
+      try {
+        const normalizedUserMsg = normalizeText(userMsg)
+        const orderFlowActive = aiOrderSession.step !== "idle"
+        const initialOrderPrompt = isInitialOrderPrompt(userMsg)
+        const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
+        const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
+        const contextProduct = catalogProducts.find(
+          (entry) => entry.id === aiOrderSession.productId || entry.id === lastProductContextId
+        )
+      const matchedProduct =
+        directProductMatch ||
+        (isInformationalQuestion(normalizedUserMsg) ? contextProduct : null)
+
+      if (matchedProduct) {
+        lastProductContextIdRef.current = matchedProduct.id
+        setLastProductContextId(matchedProduct.id)
+      }
+
       const orderStatusReply = await getOrderStatusReply(userMsg, supabase)
       const requestedItems = getRequestedItemsFromMessage(userMsg, catalogProducts)
+      const requestedMonths = getRequestedPaymentMonths(userMsg)
+      const currentProduct = getCurrentProduct(
+        catalogProducts,
+        aiOrderSession,
+        matchedProduct,
+        lastProductContextIdRef.current || lastProductContextId
+      )
+      console.log("========== PAYMENT DEBUG ==========")
+console.log("User message:", userMsg)
+console.log("Is payment question:", isPaymentQuestion(userMsg))
+console.log("Requested months:", requestedMonths)
+console.log("Current product:", currentProduct?.name || null)
+console.log("Current product ID:", currentProduct?.id || null)
+console.log("Current product price:", currentProduct?.price || null)
+console.log("===================================")
+      function isPaymentQuestion(message) {
+      const msg = normalizeText(message)
 
+        return /down payment|monthly payment|per month|payment plan|installment|finance|financing|months|month/i.test(msg)
+      }
       if (orderStatusReply) {
         const normalizedOrderReply =
           typeof orderStatusReply === "string"
@@ -1338,6 +1417,46 @@ What's most important to you?`,
         setSending(false)
         return
       }
+
+      if (
+  isPaymentQuestion(userMsg) &&
+  currentProduct
+) {
+  const months = requestedMonths || 6
+
+  const payment =
+    getPaymentPlanDetails(
+      currentProduct.price,
+      months
+    )
+
+  let reply = `For the **${currentProduct.name} (${formatPeso(currentProduct.price)})**:
+
+- Down payment: **${formatPeso(payment.downPayment)}**
+- Remaining balance: **${formatPeso(payment.balance)}**
+- **Estimated ${months}-month payment: ${formatPeso(payment.monthlyPayment)}/month**`
+
+if (payment.addedInterest > 0) {
+  reply += `
+- Estimated added interest: **${formatPeso(payment.addedInterest)}**`
+}
+
+reply += `
+
+*This is an estimate based on the current payment calculation.*`
+
+  setMessages((prev) => [
+    ...prev,
+    {
+      from: "bot",
+      text: reply,
+    },
+  ])
+
+  setSending(false)
+  return
+}
+
 const shouldUseGenerativeAI =
   !initialOrderPrompt &&
   !orderFlowActive &&
@@ -1345,12 +1464,17 @@ const shouldUseGenerativeAI =
 
 if (shouldUseGenerativeAI) {
   try {
-    const aiReply = await sendMessageToOpenAI(
-  userMsg,
-  catalogProducts,
-  messages
-)
+    const conversationHistory = messages.map((msg) => ({
+      role: msg.from === "bot" ? "assistant" : "user",
+      content: msg.text,
+    }))
 
+    const aiReply = await sendMessageToOpenAI(
+      userMsg,
+      catalogProducts,
+      conversationHistory
+    )
+    
     await new Promise((resolve) => setTimeout(resolve, 700))
 
     setMessages((prev) => [
@@ -1494,6 +1618,13 @@ if (shouldUseGenerativeAI) {
           }
         } else if (nextSession.step === "awaiting_product") {
           const matchedProduct = incomingProductMatch
+          const requestedMonths =
+            getRequestedPaymentMonths(userMsg)
+          const currentProduct = getCurrentProduct(
+            catalogProducts,
+            aiOrderSession,
+            matchedProduct
+          )
           const preferenceSignals = getPreferenceSignals(userMsg)
           const recommendations = getRecommendedProducts(catalogProducts, userMsg)
 
@@ -1649,7 +1780,7 @@ if (shouldUseGenerativeAI) {
       if (matchedProduct?.id) {
         setLastProductContextId(matchedProduct.id)
       }
-
+      
       const budgetHint = getBudgetHint(userMsg)
       const budgetRecommendations = budgetHint != null ? getRecommendedProducts(catalogProducts, userMsg) : []
 
