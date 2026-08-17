@@ -48,7 +48,7 @@ const sendMessageToOpenAI = async (
   console.log("AI Product Context:", productContext)
   console.log("Q5 Payment:", productContext.find((p) => p.name === "SPEEGO Q5")?.payment)
 
-  const response = await fetch("http://localhost:3000/api/chat", {
+  const response = await fetch("https://react-thesis.onrender.com/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1456,31 +1456,35 @@ What's most important to you?`,
         setSending(false)
         return
       }
-
+      const currentProduct = getCurrentProduct(
+        catalogProducts,
+        aiOrderSession,
+        matchedProduct,
+        lastProductContextIdRef.current || lastProductContextId
+      )
       if (
   isPaymentQuestion(userMsg) &&
-  currentProduct
+  paymentProduct
 ) {
   const months = requestedMonths || 6
 
-  const payment =
-    getPaymentPlanDetails(
-      currentProduct.price,
-      months
-    )
+  const payment = getPaymentPlanDetails(
+    paymentProduct.price,
+    months
+  )
 
-  let reply = `For the **${currentProduct.name} (${formatPeso(currentProduct.price)})**:
+  let reply = `For the **${paymentProduct.name} (${formatPeso(paymentProduct.price)})**:
 
 - Down payment: **${formatPeso(payment.downPayment)}**
 - Remaining balance: **${formatPeso(payment.balance)}**
 - **Estimated ${months}-month payment: ${formatPeso(payment.monthlyPayment)}/month**`
 
-if (payment.addedInterest > 0) {
-  reply += `
+  if (payment.addedInterest > 0) {
+    reply += `
 - Estimated added interest: **${formatPeso(payment.addedInterest)}**`
-}
+  }
 
-reply += `
+  reply += `
 
 *This is an estimate based on the current payment calculation.*`
 
@@ -1659,11 +1663,7 @@ if (shouldUseGenerativeAI) {
           const matchedProduct = incomingProductMatch
           const requestedMonths =
             getRequestedPaymentMonths(userMsg)
-          const currentProduct = getCurrentProduct(
-            catalogProducts,
-            aiOrderSession,
-            matchedProduct
-          )
+
           const preferenceSignals = getPreferenceSignals(userMsg)
           const recommendations = getRecommendedProducts(catalogProducts, userMsg)
 
