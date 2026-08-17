@@ -1176,7 +1176,25 @@ What's most important to you?`,
         return
       }
 
-      setCatalogProducts((data || []).filter((p) => p?.is_active !== false))
+      setCatalogProducts(
+  (data || [])
+    .filter((p) => p?.is_active !== false)
+    .map((product) => {
+      const colorStock = Array.isArray(product.product_color_stock)
+        ? product.product_color_stock
+        : []
+
+      const totalColorStock = colorStock.reduce(
+        (total, color) => total + Number(color.stock || 0),
+        0
+      )
+
+      return {
+        ...product,
+        stock: totalColorStock,
+      }
+    })
+)
     }
 
     loadCatalog()
@@ -1360,20 +1378,41 @@ What's most important to you?`,
       const orderStatusReply = await getOrderStatusReply(userMsg, supabase)
       const requestedItems = getRequestedItemsFromMessage(userMsg, catalogProducts)
       const requestedMonths = getRequestedPaymentMonths(userMsg)
-      const currentProduct = getCurrentProduct(
-        catalogProducts,
-        aiOrderSession,
-        matchedProduct,
-        lastProductContextIdRef.current || lastProductContextId
-      )
-      console.log("========== PAYMENT DEBUG ==========")
-console.log("User message:", userMsg)
-console.log("Is payment question:", isPaymentQuestion(userMsg))
-console.log("Requested months:", requestedMonths)
-console.log("Current product:", currentProduct?.name || null)
-console.log("Current product ID:", currentProduct?.id || null)
-console.log("Current product price:", currentProduct?.price || null)
-console.log("===================================")
+      function getCurrentProduct(
+  catalogProducts,
+  aiOrderSession,
+  matchedProduct,
+  lastProductContextId
+) {
+  // 1. Product explicitly identified in the current message
+  if (matchedProduct) {
+    return matchedProduct
+  }
+
+  // 2. Most recently established product in the conversation
+  if (lastProductContextId) {
+    const contextProduct = catalogProducts.find(
+      (product) => product.id === lastProductContextId
+    )
+
+    if (contextProduct) {
+      return contextProduct
+    }
+  }
+
+  // 3. Product currently selected in the order flow
+  if (aiOrderSession?.productId) {
+    const sessionProduct = catalogProducts.find(
+      (product) => product.id === aiOrderSession.productId
+    )
+
+    if (sessionProduct) {
+      return sessionProduct
+    }
+  }
+
+  return null
+}
       function isPaymentQuestion(message) {
       const msg = normalizeText(message)
 
