@@ -54,57 +54,48 @@ export function CartProvider({ children }) {
       let error = null
 
       const selectAttempts = [
-        `
-          id,
-          cart_id,
-          product_id,
-          variant_id,
-          quantity,
-          color,
-          image_path,
-          price_snapshot,
-          products:products ( name, price, stock )
-        `,
-        `
-          id,
-          cart_id,
-          product_id,
-          quantity,
-          color,
-          image_path,
-          price_snapshot,
-          products:products ( name, price, stock )
-        `,
-        `
-          id,
-          cart_id,
-          product_id,
-          quantity,
-          color,
-          price_snapshot,
-          products:products ( name, price, stock )
-        `,
-        `
-          id,
-          cart_id,
-          product_id,
-          quantity,
-          color,
-          products:products ( name, price, stock )
-        `,
-      ]
+  `
+    id,
+    cart_id,
+    product_id,
+    quantity,
+    color,
+    image_path,
+    price_snapshot,
+    products:products ( name, price, stock )
+  `,
+  `
+    id,
+    cart_id,
+    product_id,
+    quantity,
+    color,
+    price_snapshot,
+    products:products ( name, price, stock )
+  `,
+  `
+    id,
+    cart_id,
+    product_id,
+    quantity,
+    color,
+    products:products ( name, price, stock )
+  `,
+]
 
       for (const selectText of selectAttempts) {
-        const res = await supabase
-          .from("cart_items")
-          .select(selectText)
-          .eq("cart_id", activeCartId)
-          .order("created_at", { ascending: false })
+  const res = await supabase
+    .from("cart_items")
+    .select(selectText)
+    .eq("cart_id", activeCartId)
 
-        data = res.data
-        error = res.error
-        if (!error) break
-      }
+    console.log("CART SELECT ATTEMPT:", selectText)
+  console.log("CART QUERY ERROR:", res.error)
+  data = res.data
+  error = res.error
+  
+  if (!error) break
+}
 
       if (error) throw error
 
