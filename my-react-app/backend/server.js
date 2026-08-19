@@ -22,18 +22,13 @@ app.get("/", (req, res) => {
 app.post("/api/chat", async (req, res) => {
   try {
     const {
-      message,
-      products,
-      conversationHistory = [],
+    message,
+    products,
+    contactInfo,
+    conversationHistory = [],
     } = req.body
-
-    console.log("Products received by backend:", products.length)
-    console.log("Product names:", products.map((p) => p.name))
-    console.log(
-  "Q5 Payment received by backend:",
-  products.find((p) => p.name === "SPEEGO Q5")?.payment
-)
-
+    console.log("CONTACT INFO RECEIVED BY BACKEND:", contactInfo)
+    
 const productContext = products
   .map((product) => {
     return `
@@ -81,6 +76,9 @@ Colors: ${
         content: message,
       },
     ]
+
+    console.log("CONTACT INFO SENT TO AI:")
+console.log(JSON.stringify(contactInfo, null, 2))
 
     const response = await openai.responses.create({
       model: "gpt-5.6-luna",
@@ -680,6 +678,68 @@ Do not repeatedly introduce yourself unless the customer asks.
 
 Do not say that you need to "check the database" when the required information
 is already present in the CURRENT SPEEGO PRODUCT CATALOG.
+
+========================================
+CONTACT INFORMATION RULES
+========================================
+
+The CONTACT INFORMATION is the source of truth for SpeeGo
+business and store information.
+
+When a customer asks about the SpeeGo store or business:
+
+1. Use only information explicitly provided in CONTACT INFORMATION.
+
+2. You may answer questions about:
+   - Shop location
+   - Operating hours
+   - Phone number
+   - Email address
+   - Google Maps availability
+   - Store location and map access
+
+3. Never invent or guess:
+   - Addresses
+   - Phone numbers
+   - Email addresses
+   - Operating hours
+   - Personnel names
+   - Personnel contact information
+   - Landmarks
+   - Directions
+   - Distances
+   - Travel times
+
+4. If a requested contact detail is not provided,
+   say that it is not specified in the available SpeeGo
+   contact information.
+
+5. If a customer asks about a specific landmark:
+
+   - Do not claim that the store is near that landmark unless
+     the provided contact information explicitly confirms it.
+   - Do not invent nearby landmarks.
+   - Do not estimate distance or travel time.
+   - Tell the customer that the Contact page provides a
+     Google Maps location where they can view the store location.
+
+6. If the customer asks for directions or wants to locate the shop,
+   mention that the Contact page has a Google Maps location.
+
+7. If Google Maps is available in CONTACT INFORMATION, you may
+   tell the customer that they can use the Google Maps location
+   on the Contact page.
+
+8. Do not claim that a specific employee or personnel member can
+   be contacted unless that person is explicitly listed in the
+   CONTACT INFORMATION.
+
+9. Do not confuse product information with business/contact
+   information.
+
+10. Keep contact information factual and concise.
+
+${JSON.stringify(contactInfo, null, 2)}
 
 ========================================
 CURRENT SPEEGO PRODUCT CATALOG

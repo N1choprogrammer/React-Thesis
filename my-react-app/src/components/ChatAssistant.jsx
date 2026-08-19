@@ -24,6 +24,20 @@ const sendMessageToOpenAI = async (
   products = [],
   conversationHistory = []
 ) => {
+  const contactInfo = {
+  shopName: "SPEEGO Talavera",
+  location:
+    "Maharlika Highway Brgy. Andal Alino, Talavera, Nueva Ecija, Philippines",
+  phone: "0919-949-1986",
+  email: "ianneclauren969@gmail.com",
+  operatingHours: "Monday - Saturday, 9:00 AM - 5:00 PM",
+  googleMaps: {
+    available: true,
+    label: "Open in Google Maps",
+    url: "https://www.google.com/maps/search/?api=1&query=SpeeGo%20E-bikes%20Talavera%20Nueva%20Ecija",
+  },
+}
+
   const productContext = products.map((product) => {
     const downPayment = getDownPayment(product.price)
     const monthlyPayment = getMonthlyPayment(product.price, 6)
@@ -53,11 +67,14 @@ const sendMessageToOpenAI = async (
     headers: {
       "Content-Type": "application/json",
     },
+
     body: JSON.stringify({
-      message,
-      products: productContext,
-      conversationHistory,
-    }),
+  message,
+  products: productContext,
+  contactInfo,
+  conversationHistory,
+}),
+
   })
 
   if (!response.ok) {
@@ -1457,23 +1474,24 @@ What's most important to you?`,
         return
       }
       const currentProduct = getCurrentProduct(
-        catalogProducts,
-        aiOrderSession,
-        matchedProduct,
-        lastProductContextIdRef.current || lastProductContextId
-      )
-      if (
+  catalogProducts,
+  aiOrderSession,
+  matchedProduct,
+  lastProductContextIdRef.current || lastProductContextId
+)
+
+if (
   isPaymentQuestion(userMsg) &&
-  paymentProduct
+  currentProduct
 ) {
   const months = requestedMonths || 6
 
   const payment = getPaymentPlanDetails(
-    paymentProduct.price,
+    currentProduct.price,
     months
   )
 
-  let reply = `For the **${paymentProduct.name} (${formatPeso(paymentProduct.price)})**:
+  let reply = `For the **${currentProduct.name} (${formatPeso(currentProduct.price)})**:
 
 - Down payment: **${formatPeso(payment.downPayment)}**
 - Remaining balance: **${formatPeso(payment.balance)}**
