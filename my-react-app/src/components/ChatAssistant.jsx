@@ -91,60 +91,48 @@ const sendMessageToOpenAI = async (
   let buffer = ""
 
   while (true) {
-    const { value, done } = await reader.read()
+  const { value, done } = await reader.read()
 
-    if (done) break
-
-    buffer += decoder.decode(value, {
-      stream: true,
-    })
-
-    const events = buffer.split("\n\n")
-
-    buffer = events.pop() || ""
-
-    for (const event of events) {
-      if (!event.startsWith("data: ")) {
-        continue
-      }
-
-      const json = event.slice(6)
-
-      try {
-        const parsed = JSON.parse(json)
-
-        if (parsed.type === "text") {
-          fullReply += parsed.text
-
-          if (onChunk) {
-            onChunk(fullReply)
-          }
-        }
-
-        if (parsed.type === "done") {
-          setMessages((prev) => {
-            const updated = [...prev]
-
-            const lastMessage = updated[updated.length - 1]
-
-            if (lastMessage?.from === "bot") {
-              updated[updated.length - 1] = {
-                ...lastMessage,
-                text: fullReply,
-                streaming: false,
-              }
-            }
-
-            return updated
-          })
-        }
-      } catch (error) {
-        console.error("Failed to parse streaming event:", error)
-      }
-    }
+  if (done) {
+    break
   }
 
-  return fullReply
+  buffer += decoder.decode(value, {
+    stream: true,
+  })
+
+  const events = buffer.split("\n\n")
+
+  buffer = events.pop() || ""
+
+  for (const event of events) {
+    if (!event.startsWith("data: ")) {
+      continue
+    }
+
+    const json = event.slice(6)
+
+    try {
+      const parsed = JSON.parse(json)
+
+      if (parsed.type === "text") {
+        fullReply += parsed.text
+
+        if (onChunk) {
+          onChunk(fullReply)
+        }
+      }
+
+      if (parsed.type === "done") {
+        break
+      }
+    } catch (error) {
+      console.error("Failed to parse streaming event:", error)
+    }
+  }
+}
+
+return fullReply
 }
 
 function normalizeText(value) {
@@ -1592,10 +1580,31 @@ if (shouldUseGenerativeAI) {
     }))
 
     const aiReply = await sendMessageToOpenAI(
-      userMsg,
-      catalogProducts,
-      conversationHistory
-    )
+  userMsg,
+  catalogProducts,
+  conversationHistory,
+  (streamedText) => {
+    setMessages((prev) => {
+      const updated = [...prev]
+      const lastMessage = updated[updated.length - 1]
+
+      if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+        updated[updated.length - 1] = {
+          ...lastMessage,
+          text: streamedText,
+        }
+      } else {
+        updated.push({
+          from: "bot",
+          text: streamedText,
+          streaming: true,
+        })
+      }
+
+      return updated
+    })
+  }
+)
     
     await new Promise((resolve) => setTimeout(resolve, 700))
 
@@ -1641,7 +1650,28 @@ if (shouldUseGenerativeAI) {
           const aiReply = await sendMessageToOpenAI(
   userMsg,
   catalogProducts,
-  messages
+  conversationHistory,
+  (streamedText) => {
+    setMessages((prev) => {
+      const updated = [...prev]
+      const lastMessage = updated[updated.length - 1]
+
+      if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+        updated[updated.length - 1] = {
+          ...lastMessage,
+          text: streamedText,
+        }
+      } else {
+        updated.push({
+          from: "bot",
+          text: streamedText,
+          streaming: true,
+        })
+      }
+
+      return updated
+    })
+  }
 )
 
           setMessages((prev) => [
