@@ -25,6 +25,11 @@ const sendMessageToOpenAI = async (
   conversationHistory = [],
   onChunk = null
 ) => {
+  const startTime = performance.now()
+  let firstTokenTime = null
+
+  console.log("🤖 AI response started")
+
   const contactInfo = {
   shopName: "SPEEGO Talavera",
   location:
@@ -116,12 +121,24 @@ const sendMessageToOpenAI = async (
       const parsed = JSON.parse(json)
 
       if (parsed.type === "text") {
-        fullReply += parsed.text
 
-        if (onChunk) {
-          onChunk(fullReply)
-        }
-      }
+  if (firstTokenTime === null) {
+    firstTokenTime = performance.now()
+
+    console.log(
+      `⚡ First AI response received in ${(
+        (firstTokenTime - startTime) /
+        1000
+      ).toFixed(2)} seconds`
+    )
+  }
+
+  fullReply += parsed.text
+
+  if (onChunk) {
+    onChunk(fullReply)
+  }
+}
 
       if (parsed.type === "done") {
         break
@@ -131,6 +148,19 @@ const sendMessageToOpenAI = async (
     }
   }
 }
+
+const endTime = performance.now()
+
+console.log(
+  `✅ AI response completed in ${(
+    (endTime - startTime) /
+    1000
+  ).toFixed(2)} seconds`
+)
+
+console.log(
+  `📊 AI response length: ${fullReply.length} characters`
+)
 
 return fullReply
 }
@@ -1490,7 +1520,6 @@ What's most important to you?`,
             ? { from: "bot", text: orderStatusReply }
             : { from: "bot", ...(orderStatusReply || {}) }
 
-        await new Promise((resolve) => setTimeout(resolve, 700))
         setMessages((prev) => [...prev, normalizedOrderReply])
         setSending(false)
         return
@@ -1517,7 +1546,6 @@ What's most important to you?`,
                 color: null,
               }
         )
-        await new Promise((resolve) => setTimeout(resolve, 700))
         setMessages((prev) => [...prev, requestedItemsReply])
         setSending(false)
         return
@@ -1605,16 +1633,6 @@ if (shouldUseGenerativeAI) {
     })
   }
 )
-    
-    await new Promise((resolve) => setTimeout(resolve, 700))
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        from: "bot",
-        text: aiReply,
-      },
-    ])
 
     setSending(false)
     return
@@ -1640,7 +1658,6 @@ if (shouldUseGenerativeAI) {
               color: null,
             })
           }
-          await new Promise((resolve) => setTimeout(resolve, 700))
           setMessages((prev) => [...prev, commonQuestionReply])
           setSending(false)
           return

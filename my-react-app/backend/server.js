@@ -80,8 +80,12 @@ Colors: ${
     console.log("CONTACT INFO SENT TO AI:")
 console.log(JSON.stringify(contactInfo, null, 2))
 
+    const aiStartTime = performance.now()
+
+    console.log("🤖 OpenAI generation started")
+
     const stream = await openai.responses.create({
-      model: "gpt-5.6-luna",
+    model: "gpt-5.6-luna",
       instructions: `
 You are the AI Sales Assistant for SpeeGo E-bikes.
 
@@ -765,12 +769,21 @@ for await (const event of stream) {
   }
 
   if (event.type === "response.completed") {
-    res.write(
-      `data: ${JSON.stringify({
-        type: "done",
-      })}\n\n`
+    const aiEndTime = performance.now()
+
+    console.log(
+        `✅ OpenAI generation completed in ${(
+        (aiEndTime - aiStartTime) /
+        1000
+        ).toFixed(2)} seconds`
     )
-  }
+
+    res.write(
+        `data: ${JSON.stringify({
+        type: "done",
+        })}\n\n`
+    )
+    }
 }
 
 res.end()
