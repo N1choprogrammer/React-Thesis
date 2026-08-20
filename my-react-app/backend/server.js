@@ -80,7 +80,7 @@ Colors: ${
     console.log("CONTACT INFO SENT TO AI:")
 console.log(JSON.stringify(contactInfo, null, 2))
 
-    const response = await openai.responses.create({
+    const stream = await openai.responses.create({
       model: "gpt-5.6-luna",
       instructions: `
 You are the AI Sales Assistant for SpeeGo E-bikes.
@@ -756,34 +756,41 @@ res.setHeader("Connection", "keep-alive")
 
 for await (const event of stream) {
   if (event.type === "response.output_text.delta") {
-    res.write(`data: ${JSON.stringify({
-      type: "text",
-      text: event.delta,
-    })}\n\n`)
+    res.write(
+      `data: ${JSON.stringify({
+        type: "text",
+        text: event.delta,
+      })}\n\n`
+    )
   }
 
   if (event.type === "response.completed") {
-    res.write(`data: ${JSON.stringify({
-      type: "done",
-    })}\n\n`)
+    res.write(
+      `data: ${JSON.stringify({
+        type: "done",
+      })}\n\n`
+    )
   }
 }
 
 res.end()
 
-    res.json({
-      reply: response.output_text,
-    })
+} catch (error) {
+  console.error("OpenAI Error:", error)
 
-  } catch (error) {
-    console.error("OpenAI Error:", error)
-
+  // If streaming has not already started,
+  // send a normal JSON error response.
+  if (!res.headersSent) {
     res.status(500).json({
       error: "Sorry, I was unable to process your request.",
     })
+  } else {
+    // If streaming already started, close the stream.
+    res.end()
   }
-})
+}
 
+})
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`)
