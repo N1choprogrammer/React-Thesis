@@ -77,15 +77,8 @@ Colors: ${
       },
     ]
 
-const stream = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: "Tell me a short story." }],
-    stream: true, // Enforces real-time chunking
-});
-
-for await (const chunk of stream) {
-    process.stdout.write(chunk.choices[0]?.delta?.content || "");
-}
+    console.log("CONTACT INFO SENT TO AI:")
+console.log(JSON.stringify(contactInfo, null, 2))
 
     const response = await openai.responses.create({
       model: "gpt-5.6-luna",
@@ -755,7 +748,28 @@ CURRENT SPEEGO PRODUCT CATALOG
 ${productContext}
 `,
   input: conversationInput,
+  stream: true, // Enforces real-time chunking
 })
+res.setHeader("Content-Type", "text/event-stream")
+res.setHeader("Cache-Control", "no-cache")
+res.setHeader("Connection", "keep-alive")
+
+for await (const event of stream) {
+  if (event.type === "response.output_text.delta") {
+    res.write(`data: ${JSON.stringify({
+      type: "text",
+      text: event.delta,
+    })}\n\n`)
+  }
+
+  if (event.type === "response.completed") {
+    res.write(`data: ${JSON.stringify({
+      type: "done",
+    })}\n\n`)
+  }
+}
+
+res.end()
 
     res.json({
       reply: response.output_text,

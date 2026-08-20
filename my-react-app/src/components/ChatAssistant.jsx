@@ -67,23 +67,100 @@ const sendMessageToOpenAI = async (
     headers: {
       "Content-Type": "application/json",
     },
-
     body: JSON.stringify({
-  message,
-  products: productContext,
-  contactInfo,
-  conversationHistory,
-}),
-
+      message,
+      products: productContext,
+      contactInfo,
+      conversationHistory,
+    }),
   })
 
   if (!response.ok) {
-    throw new Error("Failed to communicate with AI backend")
+    throw new Error(`Backend returned ${response.status}`)
   }
 
-  const data = await response.json()
+  if (!response.body) {
+    throw new Error("Streaming is not supported by this response.")
+  }
 
-  return data.reply
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+
+  let fullReply = ""
+  let buffer = ""
+
+  while (true) {
+    const { value, done } = await reader.read()
+
+    if (done) break
+
+    buffer += decoder.decode(value, {
+      stream: true,
+    })
+
+    const events = buffer.split("\n\n")
+
+    buffer = events.pop() || ""
+
+    for (const event of events) {
+      if (!event.startsWith("data: ")) {
+        continue
+      }
+
+      const json = event.slice(6)
+
+      try {
+        const parsed = JSON.parse(json)
+
+        if (parsed.type === "text") {
+          fullReply += parsed.text
+
+          setMessages((prev) => {
+            const updated = [...prev]
+
+            const lastMessage = updated[updated.length - 1]
+
+            if (lastMessage?.from === "bot" && lastMessage.streaming) {
+              updated[updated.length - 1] = {
+                ...lastMessage,
+                text: fullReply,
+              }
+            } else {
+              updated.push({
+                from: "bot",
+                text: fullReply,
+                streaming: true,
+              })
+            }
+
+            return updated
+          })
+        }
+
+        if (parsed.type === "done") {
+          setMessages((prev) => {
+            const updated = [...prev]
+
+            const lastMessage = updated[updated.length - 1]
+
+            if (lastMessage?.from === "bot") {
+              updated[updated.length - 1] = {
+                ...lastMessage,
+                text: fullReply,
+                streaming: false,
+              }
+            }
+
+            return updated
+          })
+        }
+      } catch (error) {
+        console.error("Failed to parse streaming event:", error)
+      }
+    }
+  }
+
+  return fullReply
 }
 
 function normalizeText(value) {
