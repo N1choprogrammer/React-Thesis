@@ -22,7 +22,8 @@ const MAX_CUSTOM_PAYMENT_MONTHS = 36
 const sendMessageToOpenAI = async (
   message,
   products = [],
-  conversationHistory = []
+  conversationHistory = [],
+  onChunk = null
 ) => {
   const contactInfo = {
   shopName: "SPEEGO Talavera",
@@ -115,26 +116,9 @@ const sendMessageToOpenAI = async (
         if (parsed.type === "text") {
           fullReply += parsed.text
 
-          setMessages((prev) => {
-            const updated = [...prev]
-
-            const lastMessage = updated[updated.length - 1]
-
-            if (lastMessage?.from === "bot" && lastMessage.streaming) {
-              updated[updated.length - 1] = {
-                ...lastMessage,
-                text: fullReply,
-              }
-            } else {
-              updated.push({
-                from: "bot",
-                text: fullReply,
-                streaming: true,
-              })
-            }
-
-            return updated
-          })
+          if (onChunk) {
+            onChunk(fullReply)
+          }
         }
 
         if (parsed.type === "done") {
