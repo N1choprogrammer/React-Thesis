@@ -77,8 +77,15 @@ Colors: ${
       },
     ]
 
-    console.log("CONTACT INFO SENT TO AI:")
-console.log(JSON.stringify(contactInfo, null, 2))
+const stream = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: "Tell me a short story." }],
+    stream: true, // Enforces real-time chunking
+});
+
+for await (const chunk of stream) {
+    process.stdout.write(chunk.choices[0]?.delta?.content || "");
+}
 
     const response = await openai.responses.create({
       model: "gpt-5.6-luna",
