@@ -1534,11 +1534,129 @@ What's most important to you?`,
           content: msg.text,
         }))
         const cartRequest =
-        isCartConfirmation(userMsg) ||
-        normalizedUserMsg.includes("add it to my cart") ||
-        normalizedUserMsg.includes("add this to my cart") ||
-        normalizedUserMsg.includes("put it in my cart") ||
-        normalizedUserMsg.includes("add to my cart")
+      isCartConfirmation(userMsg) ||
+      normalizedUserMsg.includes("add to cart") ||
+      normalizedUserMsg.includes("add it to cart") ||
+      normalizedUserMsg.includes("add that to cart") ||
+      normalizedUserMsg.includes("add this to cart") ||
+      normalizedUserMsg.includes("put it in my cart") ||
+      normalizedUserMsg.includes("put that in my cart") ||
+      normalizedUserMsg.includes("put this in my cart") ||
+      normalizedUserMsg.includes("add it to my cart") ||
+      normalizedUserMsg.includes("add that to my cart") ||
+      normalizedUserMsg.includes("add this to my cart")
+        console.log("🛒 CART DEBUG:", {
+  userMsg,
+  normalizedUserMsg,
+  cartRequest,
+  orderFlowStep: aiOrderSession?.step,
+  productId: aiOrderSession?.productId,
+  color: aiOrderSession?.color,
+})
+
+if (cartRequest) {
+  console.log("🛒 CART HANDLER REACHED")
+   const productId =
+        aiOrderSession?.productId ||
+        lastProductContextIdRef.current ||
+        lastProductContextId
+
+      const color = aiOrderSession?.color || null
+
+      console.log("🛒 CART SELECTION:", {
+        productId,
+        color,
+      })
+
+      if (!productId) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            from: "bot",
+            text: "Please choose an e-bike first before adding it to your cart.",
+          },
+        ])
+
+        setSending(false)
+        return
+      }
+
+      const product = catalogProducts.find(
+        (entry) => entry.id === productId
+      )
+
+      if (!product) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            from: "bot",
+            text: "I couldn't find that e-bike anymore. Please select the model again.",
+          },
+        ])
+
+        setSending(false)
+        return
+      }
+
+      const availableColors = getAvailableColors(product)
+
+      // Product requires a color but customer hasn't selected one
+      if (availableColors.length > 0 && !color) {
+        console.log("🛒 COLOR REQUIRED:", availableColors)
+
+        setAiOrderSession((prev) => ({
+          ...prev,
+          step: "awaiting_color",
+          productId: product.id,
+          color: null,
+          cartRequested: true,
+        }))
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            from: "bot",
+            text: `Sure! Which color would you like for ${product.name}? Available colors: ${availableColors.join(", ")}.`,
+            links: getProductLinks(product),
+          },
+        ])
+
+        setSending(false)
+        return
+      }
+
+      // ============================================
+      // ACTUALLY ADD TO CART
+      // ============================================
+
+      console.log("🛒 ADDING TO CART:", {
+        productId: product.id,
+        color,
+      })
+
+      const response = await addSelectedProductToCart(
+        product.id,
+        color
+      )
+
+      console.log("🛒 ADD TO CART RESPONSE:", response)
+
+      setMessages((prev) => [
+        ...prev,
+        response.reply,
+      ])
+
+      setAiOrderSession({
+        step: "idle",
+        productId: null,
+        color: null,
+        cartRequested: false,
+      })
+
+      setSending(false)
+      return
+}
+
         const orderFlowActive = aiOrderSession.step !== "idle"
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
@@ -2236,7 +2354,7 @@ const startsOrderFlow =
           nextSession.productId = null
           nextSession.color = null
         }
-
+        console.log("💾 SAVING AI ORDER SESSION:", nextSession)
         setAiOrderSession(nextSession)
         const thinkingDelayMs = 900 + Math.floor(Math.random() * 900)
         await new Promise((resolve) => setTimeout(resolve, thinkingDelayMs))
