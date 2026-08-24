@@ -2141,6 +2141,14 @@ const startsOrderFlow =
     }
   } else {
     const requestedColor = getColorPreference(userMsg, product)
+    console.log("🎨 COLOR DEBUG:", {
+  userMsg,
+  productId: product?.id,
+  productName: product?.name,
+  requestedColor,
+  availableColors,
+  currentSession: aiOrderSession,
+})
     const availableColors = getAvailableColors(product)
     const stock = getTotalStock(product)
     const colorVariant = getColorVariant(product, requestedColor)
@@ -2221,8 +2229,17 @@ const startsOrderFlow =
 
     // Requested color exists and has stock
     } else if (requestedColorIsAvailable) {
+      console.log("✅ COLOR AVAILABLE:", {
+  requestedColor,
+  requestedColorIsAvailable,
+  requestedColorStock,
+})
       nextSession.color = requestedColor
-
+      console.log("🎨 COLOR SAVED TO SESSION:", {
+  productId: nextSession.productId,
+  color: nextSession.color,
+  step: nextSession.step,
+})
       const downPayment = getDownPayment(product.price)
       const monthlyPayment = getMonthlyPayment(product.price)
 
