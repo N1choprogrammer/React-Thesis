@@ -304,6 +304,57 @@ function getOrderIntent(message) {
   )
 }
 
+function isCartConfirmation(message) {
+  const msg = normalizeText(message)
+
+  return (
+    // Direct confirmations
+    msg === "yes" ||
+    msg === "yes please" ||
+    msg === "yeah" ||
+    msg === "yep" ||
+    msg === "yup" ||
+    msg === "sure" ||
+    msg === "sure thing" ||
+    msg === "okay" ||
+    msg === "ok" ||
+    msg === "alright" ||
+    msg === "go ahead" ||
+
+    // Add-to-cart requests
+    msg.includes("add to cart") ||
+    msg.includes("add it to cart") ||
+    msg.includes("add this to cart") ||
+    msg.includes("put it in my cart") ||
+    msg.includes("put this in my cart") ||
+    msg.includes("place it in my cart") ||
+
+    // Ordering confirmations
+    msg.includes("i'll take it") ||
+    msg.includes("ill take it") ||
+    msg.includes("i want it") ||
+    msg.includes("i'll take one") ||
+    msg.includes("ill take one") ||
+    msg.includes("i want one") ||
+    msg.includes("i'll buy it") ||
+    msg.includes("ill buy it") ||
+    msg.includes("i want to buy it") ||
+    msg.includes("i want to order it") ||
+    msg.includes("let's order") ||
+    msg.includes("lets order") ||
+    msg.includes("go ahead and order") ||
+    msg.includes("go ahead and add it") ||
+
+    // Cart/order navigation
+    msg.includes("proceed to cart") ||
+    msg.includes("proceed with the order") ||
+    msg.includes("order this") ||
+    msg.includes("buy this") ||
+    msg.includes("buy it") ||
+    msg.includes("add this")
+  )
+}
+
 function isInitialOrderPrompt(message) {
   const msg = normalizeText(message).replace(/-/g, " ").replace(/\s+/g, " ").trim()
   return (
@@ -1898,7 +1949,7 @@ if (shouldUseGenerativeAI) {
             }
           }
         } else if (nextSession.step === "ready") {
-          if (/proceed to cart|add to cart|add it|add this|order this|buy this|yes add|yes order/i.test(userMsg)) {
+          if (isCartConfirmation(userMsg)) {
             const response = await addSelectedProductToCart(nextSession.productId, nextSession.color)
             botReply = response.reply
           } else {
