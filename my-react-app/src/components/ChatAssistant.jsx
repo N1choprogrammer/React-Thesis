@@ -1680,8 +1680,90 @@ if (
   setSending(false)
   return
 }
+if (cartRequest) {
+  const productId =
+    aiOrderSession?.productId ||
+    matchedProduct?.id ||
+    lastProductContextIdRef.current ||
+    lastProductContextId
 
+  if (!productId) {
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "bot",
+        text: "Please choose an e-bike first before adding it to your cart.",
+      },
+    ])
+
+    setSending(false)
+    return
+  }
+
+  const product = catalogProducts.find(
+    (entry) => entry.id === productId
+  )
+
+  if (!product) {
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "bot",
+        text: "I couldn't find that e-bike anymore. Please select the model again.",
+      },
+    ])
+
+    setSending(false)
+    return
+  }
+
+  const color = aiOrderSession?.color || null
+  const availableColors = getAvailableColors(product)
+
+  if (availableColors.length > 0 && !color) {
+    setAiOrderSession((prev) => ({
+      ...prev,
+      step: "awaiting_color",
+      productId: product.id,
+      color: null,
+      cartRequested: true,
+    }))
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "bot",
+        text: `Sure! Which color would you like for ${product.name}? Available colors: ${availableColors.join(", ")}.`,
+        links: getProductLinks(product),
+      },
+    ])
+
+    setSending(false)
+    return
+  }
+
+  const response = await addSelectedProductToCart(
+    product.id,
+    color
+  )
+
+  setMessages((prev) => [
+    ...prev,
+    response.reply,
+  ])
+
+  setAiOrderSession({
+    step: "idle",
+    productId: null,
+    color: null,
+    cartRequested: false,
+  })
+
+  setSending(false)
+  return
+}
 const shouldUseGenerativeAI =
+  !cartRequest &&
   !initialOrderPrompt &&
   !orderFlowActive &&
   !getOrderIntent(userMsg)
@@ -1808,74 +1890,13 @@ const startsOrderFlow =
     Boolean(directProductMatch)
   )
 
-if (cartRequest && aiOrderSession?.productId) {
-  const product = catalogProducts.find(
-    (entry) => entry.id === aiOrderSession.productId
-  )
-
-  if (!product) {
-    setMessages((prev) => [
-      ...prev,
-      {
-        from: "bot",
-        text: "I couldn't find the selected e-bike anymore. Please choose the model again.",
-      },
-    ])
-
-    setSending(false)
-    return
-  }
-
-  const color = aiOrderSession.color || null
-  const availableColors = getAvailableColors(product)
-
-  if (availableColors.length > 0 && !color) {
-    setAiOrderSession((prev) => ({
-      ...prev,
-      step: "awaiting_color",
-      cartRequested: true,
-    }))
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        from: "bot",
-        text: `Sure! Which color would you like for ${product.name}? Available colors: ${availableColors.join(", ")}.`,
-        links: getProductLinks(product),
-      },
-    ])
-
-    setSending(false)
-    return
-  }
-
-  const response = await addSelectedProductToCart(
-    product.id,
-    color
-  )
-
-  setMessages((prev) => [
-    ...prev,
-    response.reply,
-  ])
-
-  setAiOrderSession({
-    step: "idle",
-    productId: null,
-    color: null,
-    cartRequested: false,
-  })
-
-  setSending(false)
-  return
-}
 
       if (startsOrderFlow || initialOrderPrompt) {
         const nextSession = { ...aiOrderSession }
         let botReply = null
         const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
 
-      if (cartRequest && nextSession.productId) {
+        if (cartRequest) {
         nextSession.cartRequested = true
       }
 
@@ -2167,7 +2188,7 @@ if (cartRequest && aiOrderSession?.productId) {
     }
   }
 } else if (nextSession.step === "ready") {
-  if (isCartConfirmation(userMsg)) {
+  if (cartRequest) {
     const response = await addSelectedProductToCart(
       nextSession.productId,
       nextSession.color
