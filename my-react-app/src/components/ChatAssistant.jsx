@@ -1805,7 +1805,6 @@ if (shouldUseGenerativeAI) {
           return
         }
       }
-
 const startsOrderFlow =
   !cartRequest &&
   (
@@ -1881,7 +1880,6 @@ if (cartRequest && aiOrderSession?.productId) {
         const nextSession = { ...aiOrderSession }
         let botReply = null
         const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
-        const cartRequest = isCartConfirmation(userMsg)
 
       if (cartRequest && nextSession.productId) {
         nextSession.cartRequested = true
