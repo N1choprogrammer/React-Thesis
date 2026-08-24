@@ -439,7 +439,10 @@ function getRecommendedProducts(products, message) {
         const difference = Math.abs(price - budget)
         const isUnderBudget = price <= budget
         let score = 0
-
+        console.log("🤖 RECOMMENDATION SCORE")
+        console.log("Product:", product.name)
+        console.log("Score:", score)
+        console.log("--------------------------------")
         if (isUnderBudget) score += 20
         score += Math.max(0, 12 - difference / 1000)
 

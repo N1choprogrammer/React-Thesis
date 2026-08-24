@@ -1,5 +1,6 @@
 import express from "express";
 import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import cors from "cors";
 
@@ -15,8 +16,89 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAdmin =
+  supabaseUrl && supabaseServiceRoleKey
+    ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      })
+    : null;
+
 app.get("/", (req, res) => {
     res.send("SpeeGo AI Backend is running!");
+});
+
+app.post("/api/delete-account", async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({
+        error: "Account deletion is not configured on the server.",
+      });
+    }
+
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+    if (!token) {
+      return res.status(401).json({
+        error: "You need to be logged in to delete your account.",
+      });
+    }
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({
+        error: "Your session is no longer valid. Please log in again.",
+      });
+    }
+
+    let { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+
+    if (deleteUserError) {
+      const { error: profileDeleteBeforeRetryError } = await supabaseAdmin
+        .from("profiles")
+        .delete()
+        .eq("id", user.id);
+
+      if (!profileDeleteBeforeRetryError) {
+        const retryResult = await supabaseAdmin.auth.admin.deleteUser(user.id);
+        deleteUserError = retryResult.error;
+      }
+    }
+
+    if (deleteUserError) {
+      console.error("Delete auth user error:", deleteUserError);
+      return res.status(500).json({
+        error: "Failed to delete your login account.",
+      });
+    }
+
+    const { error: profileCleanupError } = await supabaseAdmin
+      .from("profiles")
+      .delete()
+      .eq("id", user.id);
+
+    if (profileCleanupError) {
+      console.warn("Profile cleanup after account deletion failed:", profileCleanupError);
+    }
+
+    return res.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    return res.status(500).json({
+      error: "Sorry, we were unable to delete your account.",
+    });
+  }
 });
 
 app.post("/api/chat", async (req, res) => {
@@ -198,6 +280,59 @@ the source of truth.
     has not identified a product and there is no previously discussed
     product to use as context, ask which SpeeGo model they are referring
     to instead of listing the payment amounts for every product.
+
+========================================
+PAYMENT METHODS RULES
+========================================
+
+SpeeGo accepts the following payment methods:
+
+* GCash
+* Bank Transfer
+* Cash on Delivery (COD)
+
+These payment methods are confirmed SpeeGo payment options.
+
+When a customer asks whether SpeeGo accepts GCash:
+
+* Answer YES.
+* Tell the customer that GCash is accepted.
+* Also mention that Bank Transfer and Cash on Delivery (COD) are available.
+
+Example:
+
+"Yes! SpeeGo accepts **GCash**. We also accept **Bank Transfer** and **Cash on Delivery (COD)**."
+
+When a customer asks which payment methods are available:
+
+* List all three confirmed payment methods:
+
+  * GCash
+  * Bank Transfer
+  * Cash on Delivery (COD)
+
+When a customer asks specifically about Bank Transfer:
+
+* Confirm that Bank Transfer is accepted.
+* Also mention GCash and Cash on Delivery (COD) when useful.
+
+When a customer asks specifically about Cash on Delivery:
+
+* Confirm that Cash on Delivery (COD) is available.
+* Also mention GCash and Bank Transfer when useful.
+
+Do not say that GCash, Bank Transfer, or Cash on Delivery are unavailable or unconfirmed.
+
+Do not ask the customer to contact the store to confirm these payment methods because they are already confirmed SpeeGo payment options.
+
+Do not confuse payment methods with financing plans.
+
+GCash and Bank Transfer may also be used for the required down-payment proof during the SpeeGo financing process.
+
+Cash on Delivery (COD) is a payment method and should not automatically be described as a financing option.
+
+========================================
+
 
 ========================================
 PRODUCT SPECIFICATION RULES

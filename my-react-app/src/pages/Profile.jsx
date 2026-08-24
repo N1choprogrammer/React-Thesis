@@ -3,12 +3,17 @@ import { useNavigate } from "react-router-dom"
 import { supabase } from "../services/supabaseClient"
 import { useTheme } from "../context/ThemeContext"
 
+const API_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "https://react-thesis.onrender.com"
+const DELETE_CONFIRMATION_TEXT = "DELETE"
+
 export default function Profile() {
   const { isDark } = useTheme()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
   const [errorMsg, setErrorMsg] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
 
@@ -20,6 +25,7 @@ export default function Profile() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("")
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState("")
 
   const validatePassword = (password) => {
     if (password.length < 8) {
@@ -172,6 +178,56 @@ export default function Profile() {
     setConfirmNewPassword("")
     setSuccessMsg("Password changed successfully.")
     setSaving(false)
+  }
+
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault()
+    setDeletingAccount(true)
+    setErrorMsg(null)
+    setSuccessMsg(null)
+
+    if (deleteConfirmation.trim() !== DELETE_CONFIRMATION_TEXT) {
+      setErrorMsg(`Type ${DELETE_CONFIRMATION_TEXT} to confirm account deletion.`)
+      setDeletingAccount(false)
+      return
+    }
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError || !session?.access_token) {
+      setErrorMsg("You need to be logged in.")
+      setDeletingAccount(false)
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/delete-account`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      })
+
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to delete your account.")
+      }
+
+      await supabase.auth.signOut()
+      navigate("/login", {
+        replace: true,
+        state: { message: "Your account has been deleted." },
+      })
+    } catch (error) {
+      console.error("Delete account error:", error)
+      setErrorMsg(error.message || "Failed to delete your account.")
+      setDeletingAccount(false)
+    }
   }
 
   const inputClass =
@@ -372,6 +428,50 @@ export default function Profile() {
               className="rounded-xl border border-red-500 bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Updating..." : "Change password"}
+            </button>
+          </div>
+        </form>
+
+        <form
+          onSubmit={handleDeleteAccount}
+          className={[
+            "mt-6 space-y-5 rounded-3xl p-5 sm:p-6",
+            isDark
+              ? "border border-red-500/30 bg-red-950/20 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+              : "border border-red-200 bg-red-50/80 shadow-[0_14px_40px_rgba(17,24,39,0.10)]",
+          ].join(" ")}
+        >
+          <div>
+            <h3 className={["text-lg font-semibold", isDark ? "text-red-100" : "text-red-800"].join(" ")}>Delete account</h3>
+            <p className={["mt-1 text-sm leading-6", isDark ? "text-red-100/75" : "text-red-700"].join(" ")}>
+              Permanently remove your profile and login account. This action cannot be undone.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="delete-confirmation" className={["block text-sm font-medium", isDark ? "text-red-100" : "text-red-800"].join(" ")}>
+              Type DELETE to confirm
+            </label>
+            <input
+              id="delete-confirmation"
+              type="text"
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              placeholder="DELETE"
+              className={inputClass}
+            />
+          </div>
+
+          <div className={["flex flex-wrap items-center justify-between gap-3 pt-4", isDark ? "border-t border-red-500/20" : "border-t border-red-200"].join(" ")}>
+            <p className={["text-xs", isDark ? "text-red-100/65" : "text-red-700"].join(" ")}>
+              You will be signed out after the account is deleted.
+            </p>
+            <button
+              type="submit"
+              disabled={deletingAccount || deleteConfirmation.trim() !== DELETE_CONFIRMATION_TEXT}
+              className="rounded-xl border border-red-700 bg-red-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deletingAccount ? "Deleting..." : "Delete account"}
             </button>
           </div>
         </form>

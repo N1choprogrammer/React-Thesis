@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { measureTime } from "../utils/performance"
 import { supabase } from "../services/supabaseClient"
 import { useCart } from "../context/CartContext"
 import { useNavigate, useSearchParams } from "react-router-dom"

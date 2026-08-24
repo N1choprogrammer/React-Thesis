@@ -183,6 +183,7 @@ export function CartProvider({ children }) {
   }, [])
 
   const addToCart = async (product, color, qty = 1, imagePath = null, variantId = null) => {
+    const startTime = performance.now()
     const user = await getUserOrNull()
     if (!user) return { ok: false, reason: "not_logged_in" }
 
@@ -342,6 +343,7 @@ export function CartProvider({ children }) {
         console.error("Insert cart item error:", insErr)
         return { ok: false, reason: "db_error" }
       }
+      
     }
 
     await loadCart()
