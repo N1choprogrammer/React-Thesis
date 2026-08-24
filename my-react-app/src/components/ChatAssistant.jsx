@@ -282,6 +282,7 @@ function getTotalStock(product) {
 
 function getOrderIntent(message) {
   const msg = normalizeText(message)
+
   return (
     msg.includes("order ebike through speego ai") ||
     msg.includes("order an ebike through speego ai") ||
@@ -294,6 +295,10 @@ function getOrderIntent(message) {
     msg.includes("add to cart") ||
     msg.includes("add it to cart") ||
     msg.includes("add this to cart") ||
+    msg.includes("add it to my cart") ||
+    msg.includes("add this to my cart") ||
+    msg.includes("put it in my cart") ||
+    msg.includes("add this item to my cart") ||
     msg.includes("order one") ||
     msg.includes("order it") ||
     msg.includes("i want one") ||
@@ -303,7 +308,6 @@ function getOrderIntent(message) {
     msg.includes("place order")
   )
 }
-
 function isCartConfirmation(message) {
   const msg = normalizeText(message)
 
@@ -328,10 +332,6 @@ function isCartConfirmation(message) {
     msg.includes("put it in my cart") ||
     msg.includes("put this in my cart") ||
     msg.includes("place it in my cart") ||
-    msg.includes("add it to my cart") ||
-    msg.includes("add this to my cart") ||
-    msg.includes("put it in my cart") ||
-    msg.includes("add this item to my cart") ||
 
     // Ordering confirmations
     msg.includes("i'll take it") ||
@@ -1500,12 +1500,7 @@ What's most important to you?`,
     setMessages((prev) => [...prev, response.reply])
     setSending(false)
   } 
-    const cartRequest =
-      isCartConfirmation(userMsg) ||
-      msg.includes("add it to my cart") ||
-      msg.includes("add this to my cart") ||
-      msg.includes("put it in my cart") ||
-      msg.includes("add to my cart")
+
 
     const handleSendMessage = async (rawMessage, options = {}) => {
       const { skipUserMessage = false } = options
@@ -1520,6 +1515,12 @@ What's most important to you?`,
 
       try {
         const normalizedUserMsg = normalizeText(userMsg)
+        const cartRequest =
+        isCartConfirmation(userMsg) ||
+        normalizedUserMsg.includes("add it to my cart") ||
+        normalizedUserMsg.includes("add this to my cart") ||
+        normalizedUserMsg.includes("put it in my cart") ||
+        normalizedUserMsg.includes("add to my cart")
         const orderFlowActive = aiOrderSession.step !== "idle"
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
@@ -1665,8 +1666,7 @@ if (
 const shouldUseGenerativeAI =
   !initialOrderPrompt &&
   !orderFlowActive &&
-  !getOrderIntent(userMsg) &&
-  !cartRequest
+  !getOrderIntent(userMsg)
 
 if (shouldUseGenerativeAI) {
   try {
@@ -2208,6 +2208,7 @@ if (shouldUseGenerativeAI) {
       setSending(false)
     }
   }
+
 
   const handleSubmit = async (e) => {
     e.preventDefault()
