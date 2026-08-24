@@ -336,7 +336,7 @@ function isCartConfirmation(message) {
     msg.includes("put it in my cart") ||
     msg.includes("put this in my cart") ||
     msg.includes("place it in my cart") ||
-    
+
     "add to cart",
     "add it to cart",
     "add this to cart",
@@ -1883,7 +1883,6 @@ if (cartRequest && aiOrderSession?.productId) {
         const nextSession = { ...aiOrderSession }
         let botReply = null
         const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
-        const cartRequest = isCartConfirmation(userMsg)
 
       if (cartRequest && nextSession.productId) {
         nextSession.cartRequested = true
