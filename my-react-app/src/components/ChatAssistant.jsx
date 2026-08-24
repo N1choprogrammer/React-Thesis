@@ -1529,6 +1529,10 @@ What's most important to you?`,
 
       try {
         const normalizedUserMsg = normalizeText(userMsg)
+        const conversationHistory = messages.map((msg) => ({
+          role: msg.from === "bot" ? "assistant" : "user",
+          content: msg.text,
+        }))
         const cartRequest =
         isCartConfirmation(userMsg) ||
         normalizedUserMsg.includes("add it to my cart") ||
@@ -1684,37 +1688,32 @@ const shouldUseGenerativeAI =
 
 if (shouldUseGenerativeAI) {
   try {
-    const conversationHistory = messages.map((msg) => ({
-      role: msg.from === "bot" ? "assistant" : "user",
-      content: msg.text,
-    }))
-
     const aiReply = await sendMessageToOpenAI(
-  userMsg,
-  catalogProducts,
-  conversationHistory,
-  (streamedText) => {
-    setMessages((prev) => {
-      const updated = [...prev]
-      const lastMessage = updated[updated.length - 1]
+      userMsg,
+      catalogProducts,
+      conversationHistory,
+      (streamedText) => {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const lastMessage = updated[updated.length - 1]
 
-      if (lastMessage?.from === "bot" && lastMessage?.streaming) {
-        updated[updated.length - 1] = {
-          ...lastMessage,
-          text: streamedText,
-        }
-      } else {
-        updated.push({
-          from: "bot",
-          text: streamedText,
-          streaming: true,
+          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+            updated[updated.length - 1] = {
+              ...lastMessage,
+              text: streamedText,
+            }
+          } else {
+            updated.push({
+              from: "bot",
+              text: streamedText,
+              streaming: true,
+            })
+          }
+
+          return updated
         })
       }
-
-      return updated
-    })
-  }
-)
+    )
 
     setSending(false)
     return
