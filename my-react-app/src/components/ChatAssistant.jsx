@@ -1275,6 +1275,7 @@ What's most important to you?`,
     step: "idle",
     productId: null,
     color: null,
+    cartRequested: false,
   })
 
   useEffect(() => {
@@ -1593,11 +1594,13 @@ What's most important to you?`,
                 step: "awaiting_color",
                 productId: singleRequestedItem.product.id,
                 color: null,
+                cartRequested: true,
               }
             : {
                 step: "idle",
                 productId: null,
                 color: null,
+                cartRequested: false,
               }
         )
         setMessages((prev) => [...prev, requestedItemsReply])
@@ -1704,12 +1707,14 @@ if (shouldUseGenerativeAI) {
               step: "awaiting_color",
               productId: matchedProduct.id,
               color: null,
+              cartRequested: false,
             })
           } else if (isInformationalQuestion(normalizedUserMsg)) {
             setAiOrderSession({
               step: "idle",
               productId: null,
               color: null,
+              cartRequested: false,
             })
           }
           setMessages((prev) => [...prev, commonQuestionReply])
@@ -1777,11 +1782,17 @@ if (shouldUseGenerativeAI) {
         const nextSession = { ...aiOrderSession }
         let botReply = null
         const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
+        const cartRequest = isCartConfirmation(userMsg)
+
+      if (cartRequest && nextSession.productId) {
+        nextSession.cartRequested = true
+      }
 
         if (initialOrderPrompt) {
           nextSession.step = "awaiting_product"
           nextSession.productId = null
           nextSession.color = null
+          nextSession.cartRequested = false
           botReply = {
             from: "bot",
             text: "I’d be happy to help you shop for an e-bike. Tell me what you want, your budget, or how you’ll use it, and I’ll guide you to the best fit.",
@@ -1790,6 +1801,7 @@ if (shouldUseGenerativeAI) {
           nextSession.step = "awaiting_color"
           nextSession.productId = incomingProductMatch.id
           nextSession.color = null
+          nextSession.cartRequested = false
           const availableColors = getAvailableColors(incomingProductMatch)
           const stock = getTotalStock(incomingProductMatch)
           const downPayment = getDownPayment(incomingProductMatch.price)
@@ -1869,6 +1881,7 @@ if (shouldUseGenerativeAI) {
             nextSession.step = "awaiting_color"
             nextSession.productId = matchedProduct.id
             nextSession.color = null
+            nextSession.cartRequested = false
             const availableColors = getAvailableColors(matchedProduct)
             const stock = getTotalStock(matchedProduct)
             const downPayment = getDownPayment(matchedProduct.price)
@@ -1880,88 +1893,213 @@ if (shouldUseGenerativeAI) {
             }
           }
         } else if (nextSession.step === "awaiting_color") {
-          const product = catalogProducts.find((entry) => entry.id === nextSession.productId)
-          const preferenceSignals = getPreferenceSignals(userMsg)
+  const product = catalogProducts.find(
+    (entry) => entry.id === nextSession.productId
+  )
 
-          if (!product) {
-            nextSession.step = "awaiting_product"
-            nextSession.productId = null
-            nextSession.color = null
-            botReply = {
-              from: "bot",
-              text: "I lost the selected bike. Tell me the model you want again, and I’ll continue from there.",
-            }
-          } else {
-            const requestedColor = getColorPreference(userMsg, product)
-            const availableColors = getAvailableColors(product)
-            const stock = getTotalStock(product)
-            const colorVariant = getColorVariant(product, requestedColor)
-            const requestedColorIsAvailable = Boolean(requestedColor && colorVariant && Number(colorVariant?.stock || 0) > 0)
-            const requestedColorStock = colorVariant ? Number(colorVariant?.stock || 0) : 0
+  const preferenceSignals = getPreferenceSignals(userMsg)
 
-            if (preferenceSignals.mentionsBudget || preferenceSignals.mentionsType || preferenceSignals.wantsThreeWheel || preferenceSignals.wantsFourWheel) {
-              nextSession.step = "awaiting_product"
-              nextSession.productId = null
-              nextSession.color = null
-              botReply = {
-                from: "bot",
-                text: "I can help narrow it down. What type of electric bike do you prefer, or what is your budget?",
-              }
-            } else if (!availableColors.length) {
-              nextSession.step = "ready"
-              nextSession.color = null
-              const downPayment = getDownPayment(product.price)
-              const monthlyPayment = getMonthlyPayment(product.price)
-              botReply = {
-                from: "bot",
-                text: `${product.name} is ${stock > 0 ? "available" : "currently out of stock"}. Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. You can add this item to your cart when you are ready.`,
-                links: getProductLinks(product),
-                actions: [{ label: "Add to cart", onClick: () => handleAddToCartFromBot(product.id, nextSession.color) }],
-              }
-            } else if (requestedColorIsAvailable) {
-              nextSession.step = "ready"
-              nextSession.color = requestedColor
-              const downPayment = getDownPayment(product.price)
-              const monthlyPayment = getMonthlyPayment(product.price)
-              botReply = {
-                from: "bot",
-                text: `${product.name} in ${requestedColor} is available. ${requestedColorStock > 0 ? `${requestedColor} has ${requestedColorStock} left in stock.` : `${requestedColor} is out of stock.`} Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. You can add this item to your cart when you are ready.`,
-                links: getProductLinks(product, requestedColor),
-                actions: [{ label: "Add to cart", onClick: () => handleAddToCartFromBot(product.id, requestedColor) }],
-              }
-            } else if (requestedColor) {
-              nextSession.step = "awaiting_color"
-              nextSession.color = null
-              botReply = {
-                from: "bot",
-                text: `The chosen color for ${product.name} is not available. Please choose among the colors provided: ${availableColors.join(", ")}.`,
-              }
-            } else {
-              nextSession.step = "awaiting_color"
-              nextSession.color = null
-              const downPayment = getDownPayment(product.price)
-              const monthlyPayment = getMonthlyPayment(product.price)
-              botReply = {
-                from: "bot",
-                text: `${product.name} is ${stock > 0 ? "available" : "currently out of stock"}. Available colors: ${availableColors.join(", ")}. Down payment: ${formatPeso(downPayment)}. Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}. Please tell me which color you want before I add it to your cart.`,
-                links: getProductLinks(product),
-              }
-            }
-          }
-        } else if (nextSession.step === "ready") {
-          if (isCartConfirmation(userMsg)) {
-            const response = await addSelectedProductToCart(nextSession.productId, nextSession.color)
-            botReply = response.reply
-          } else {
-            nextSession.step = "idle"
-            nextSession.productId = null
-            nextSession.color = null
-            botReply = {
-              from: "bot",
-              text: "Sure. Ask me about models, colors, payment, stock, or recommendations, and I’ll help from there.",
-            }
-          }
+  if (!product) {
+    nextSession.step = "awaiting_product"
+    nextSession.productId = null
+    nextSession.color = null
+    nextSession.cartRequested = false
+
+    botReply = {
+      from: "bot",
+      text: "I lost the selected bike. Tell me the model you want again, and I’ll continue from there.",
+    }
+  } else {
+    const requestedColor = getColorPreference(userMsg, product)
+    const availableColors = getAvailableColors(product)
+    const stock = getTotalStock(product)
+    const colorVariant = getColorVariant(product, requestedColor)
+
+    const requestedColorIsAvailable = Boolean(
+      requestedColor &&
+      colorVariant &&
+      Number(colorVariant?.stock || 0) > 0
+    )
+
+    const requestedColorStock = colorVariant
+      ? Number(colorVariant?.stock || 0)
+      : 0
+
+    // Customer changed their preferences
+    if (
+      preferenceSignals.mentionsBudget ||
+      preferenceSignals.mentionsType ||
+      preferenceSignals.wantsThreeWheel ||
+      preferenceSignals.wantsFourWheel
+    ) {
+      nextSession.step = "awaiting_product"
+      nextSession.productId = null
+      nextSession.color = null
+      nextSession.cartRequested = false
+
+      botReply = {
+        from: "bot",
+        text: "I can help narrow it down. What type of electric bike do you prefer, or what is your budget?",
+      }
+
+    // Product has no colors
+    } else if (!availableColors.length) {
+      nextSession.color = null
+
+      if (nextSession.cartRequested && stock > 0) {
+        const response = await addSelectedProductToCart(
+          product.id,
+          null
+        )
+
+        botReply = response.reply
+
+        nextSession.step = "idle"
+        nextSession.productId = null
+        nextSession.color = null
+        nextSession.cartRequested = false
+      } else {
+        nextSession.step = "ready"
+
+        const downPayment = getDownPayment(product.price)
+        const monthlyPayment = getMonthlyPayment(product.price)
+
+        botReply = {
+          from: "bot",
+          text: `${product.name} is ${
+            stock > 0 ? "available" : "currently out of stock"
+          }. Down payment: ${formatPeso(
+            downPayment
+          )}. Estimated monthly payment for a 6-month plan: ${formatPeso(
+            monthlyPayment
+          )}. You can add this item to your cart when you are ready.`,
+
+          links: getProductLinks(product),
+
+          actions: [
+            {
+              label: "Add to cart",
+              onClick: () =>
+                handleAddToCartFromBot(
+                  product.id,
+                  null
+                ),
+            },
+          ],
         }
+      }
+
+    // Requested color exists and has stock
+    } else if (requestedColorIsAvailable) {
+      nextSession.color = requestedColor
+
+      const downPayment = getDownPayment(product.price)
+      const monthlyPayment = getMonthlyPayment(product.price)
+
+      if (nextSession.cartRequested) {
+        const response = await addSelectedProductToCart(
+          product.id,
+          requestedColor
+        )
+
+        botReply = response.reply
+
+        // Reset after automatic cart addition
+        nextSession.step = "idle"
+        nextSession.productId = null
+        nextSession.color = null
+        nextSession.cartRequested = false
+      } else {
+        nextSession.step = "ready"
+
+        botReply = {
+          from: "bot",
+
+          text: `${product.name} in ${requestedColor} is available. ${requestedColorStock} left in stock. Down payment: ${formatPeso(
+            downPayment
+          )}. Estimated monthly payment for a 6-month plan: ${formatPeso(
+            monthlyPayment
+          )}. Would you like me to add it to your cart?`,
+
+          links: getProductLinks(
+            product,
+            requestedColor
+          ),
+
+          actions: [
+            {
+              label: "Add to cart",
+              onClick: () =>
+                handleAddToCartFromBot(
+                  product.id,
+                  requestedColor
+                ),
+            },
+          ],
+        }
+      }
+
+    // Requested color doesn't exist / is out of stock
+    } else if (requestedColor) {
+      nextSession.step = "awaiting_color"
+      nextSession.color = null
+
+      botReply = {
+        from: "bot",
+        text: `The chosen color for ${product.name} is not available. Please choose among the colors provided: ${availableColors.join(
+          ", "
+        )}.`,
+      }
+
+    // No color understood
+    } else {
+      nextSession.step = "awaiting_color"
+      nextSession.color = null
+
+      const downPayment = getDownPayment(product.price)
+      const monthlyPayment = getMonthlyPayment(product.price)
+
+      botReply = {
+        from: "bot",
+        text: `${product.name} is ${
+          stock > 0 ? "available" : "currently out of stock"
+        }. Available colors: ${availableColors.join(
+          ", "
+        )}. Down payment: ${formatPeso(
+          downPayment
+        )}. Estimated monthly payment for a 6-month plan: ${formatPeso(
+          monthlyPayment
+        )}. Please tell me which color you want before I add it to your cart.`,
+
+        links: getProductLinks(product),
+      }
+    }
+  }
+} else if (nextSession.step === "ready") {
+  if (isCartConfirmation(userMsg)) {
+    const response = await addSelectedProductToCart(
+      nextSession.productId,
+      nextSession.color
+    )
+
+    botReply = response.reply
+
+    nextSession.step = "idle"
+    nextSession.productId = null
+    nextSession.color = null
+    nextSession.cartRequested = false
+  } else {
+    nextSession.step = "idle"
+    nextSession.productId = null
+    nextSession.color = null
+    nextSession.cartRequested = false
+
+    botReply = {
+      from: "bot",
+      text: "Sure. Ask me about models, colors, payment, stock, or recommendations, and I’ll help from there.",
+    }
+  }
+}
 
         if (!botReply) {
           const fallbackProduct = matchedProduct || catalogProducts.find((entry) => entry.id === nextSession.productId)
