@@ -336,6 +336,21 @@ function isCartConfirmation(message) {
     msg.includes("put it in my cart") ||
     msg.includes("put this in my cart") ||
     msg.includes("place it in my cart") ||
+    
+    "add to cart",
+    "add it to cart",
+    "add this to cart",
+    "add that to cart",
+    "put it in my cart",
+    "put this in my cart",
+    "put that in my cart",
+    "add it",
+    "add this",
+    "add that",
+    "i want it",
+    "i'll take it",
+    "ill take it",
+    "yes add it",
 
     // Ordering confirmations
     msg.includes("i'll take it") ||
@@ -360,8 +375,6 @@ function isCartConfirmation(message) {
     msg.includes("buy this") ||
     msg.includes("buy it") ||
     msg.includes("add this")
-
-    
   )
 }
 
@@ -1793,6 +1806,8 @@ if (shouldUseGenerativeAI) {
         }
       }
 
+      const cartRequest = isCartConfirmation(userMsg)
+
 const startsOrderFlow =
   !cartRequest &&
   (
@@ -1863,7 +1878,8 @@ if (cartRequest && aiOrderSession?.productId) {
   setSending(false)
   return
 }
-  if (startsOrderFlow || initialOrderPrompt) {
+
+      if (startsOrderFlow || initialOrderPrompt) {
         const nextSession = { ...aiOrderSession }
         let botReply = null
         const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
