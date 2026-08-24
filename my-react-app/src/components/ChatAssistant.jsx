@@ -328,6 +328,10 @@ function isCartConfirmation(message) {
     msg.includes("put it in my cart") ||
     msg.includes("put this in my cart") ||
     msg.includes("place it in my cart") ||
+    msg.includes("add it to my cart") ||
+    msg.includes("add this to my cart") ||
+    msg.includes("put it in my cart") ||
+    msg.includes("add this item to my cart") ||
 
     // Ordering confirmations
     msg.includes("i'll take it") ||
@@ -1495,7 +1499,13 @@ What's most important to you?`,
     const response = await addSelectedProductToCart(productIdOverride, colorOverride)
     setMessages((prev) => [...prev, response.reply])
     setSending(false)
-  }
+  } 
+    const cartRequest =
+      isCartConfirmation(userMsg) ||
+      msg.includes("add it to my cart") ||
+      msg.includes("add this to my cart") ||
+      msg.includes("put it in my cart") ||
+      msg.includes("add to my cart")
 
     const handleSendMessage = async (rawMessage, options = {}) => {
       const { skipUserMessage = false } = options
@@ -1655,7 +1665,8 @@ if (
 const shouldUseGenerativeAI =
   !initialOrderPrompt &&
   !orderFlowActive &&
-  !getOrderIntent(userMsg)
+  !getOrderIntent(userMsg) &&
+  !cartRequest
 
 if (shouldUseGenerativeAI) {
   try {
