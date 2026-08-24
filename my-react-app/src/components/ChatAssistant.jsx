@@ -310,11 +310,6 @@ function getOrderIntent(message) {
 }
 function isCartConfirmation(message) {
   const msg = normalizeText(message)
-  console.log(
-  "CART CONFIRMATION:",
-  userMsg,
-  isCartConfirmation(userMsg)
-)
   return (
     // Direct confirmations
     msg === "yes" ||
