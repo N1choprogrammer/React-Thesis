@@ -310,7 +310,11 @@ function getOrderIntent(message) {
 }
 function isCartConfirmation(message) {
   const msg = normalizeText(message)
-
+  console.log(
+  "CART CONFIRMATION:",
+  userMsg,
+  isCartConfirmation(userMsg)
+)
   return (
     // Direct confirmations
     msg === "yes" ||
@@ -356,6 +360,8 @@ function isCartConfirmation(message) {
     msg.includes("buy this") ||
     msg.includes("buy it") ||
     msg.includes("add this")
+
+    
   )
 }
 
@@ -1787,13 +1793,82 @@ if (shouldUseGenerativeAI) {
         }
       }
 
-      const startsOrderFlow = initialOrderPrompt || getOrderIntent(userMsg) || orderFlowActive || Boolean(directProductMatch)
-
       if (startsOrderFlow || initialOrderPrompt) {
         const nextSession = { ...aiOrderSession }
         let botReply = null
         const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
         const cartRequest = isCartConfirmation(userMsg)
+
+const startsOrderFlow =
+  !cartRequest &&
+  (
+    initialOrderPrompt ||
+    getOrderIntent(userMsg) ||
+    orderFlowActive ||
+    Boolean(directProductMatch)
+  )
+
+if (cartRequest && aiOrderSession?.productId) {
+  const product = catalogProducts.find(
+    (entry) => entry.id === aiOrderSession.productId
+  )
+
+  if (!product) {
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "bot",
+        text: "I couldn't find the selected e-bike anymore. Please choose the model again.",
+      },
+    ])
+
+    setSending(false)
+    return
+  }
+
+  const color = aiOrderSession.color || null
+  const availableColors = getAvailableColors(product)
+
+  if (availableColors.length > 0 && !color) {
+    setAiOrderSession((prev) => ({
+      ...prev,
+      step: "awaiting_color",
+      cartRequested: true,
+    }))
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "bot",
+        text: `Sure! Which color would you like for ${product.name}? Available colors: ${availableColors.join(", ")}.`,
+        links: getProductLinks(product),
+      },
+    ])
+
+    setSending(false)
+    return
+  }
+
+  const response = await addSelectedProductToCart(
+    product.id,
+    color
+  )
+
+  setMessages((prev) => [
+    ...prev,
+    response.reply,
+  ])
+
+  setAiOrderSession({
+    step: "idle",
+    productId: null,
+    color: null,
+    cartRequested: false,
+  })
+
+  setSending(false)
+  return
+}
 
       if (cartRequest && nextSession.productId) {
         nextSession.cartRequested = true
