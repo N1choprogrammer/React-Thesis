@@ -1793,12 +1793,6 @@ if (shouldUseGenerativeAI) {
         }
       }
 
-      if (startsOrderFlow || initialOrderPrompt) {
-        const nextSession = { ...aiOrderSession }
-        let botReply = null
-        const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
-        const cartRequest = isCartConfirmation(userMsg)
-
 const startsOrderFlow =
   !cartRequest &&
   (
@@ -1869,6 +1863,11 @@ if (cartRequest && aiOrderSession?.productId) {
   setSending(false)
   return
 }
+  if (startsOrderFlow || initialOrderPrompt) {
+        const nextSession = { ...aiOrderSession }
+        let botReply = null
+        const incomingProductMatch = initialOrderPrompt ? null : directProductMatch
+        const cartRequest = isCartConfirmation(userMsg)
 
       if (cartRequest && nextSession.productId) {
         nextSession.cartRequested = true
