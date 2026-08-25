@@ -1990,6 +1990,7 @@ console.log(
 
 if (shouldUseGenerativeAI) {
   try {
+    console.log("🚨 OPENAI CALL #1")
     const aiReply = await sendMessageToOpenAI(
       userMsg,
       catalogProducts,
@@ -2049,6 +2050,7 @@ if (shouldUseGenerativeAI) {
         }
                 // OpenAI generative fallback
         try {
+          console.log("🚨 OPENAI CALL #2")
           const aiReply = await sendMessageToOpenAI(
   userMsg,
   catalogProducts,
