@@ -1407,48 +1407,51 @@ const addSelectedProductToCart = async (
   colorOverride = null
 ) => {
   const currentProductId =
-    productIdOverride ?? aiOrderSession?.productId
+  productIdOverride ?? aiOrderSession?.productId
 
-  const currentColor =
-    colorOverride ?? aiOrderSession?.color
+const currentColor =
+  colorOverride ?? aiOrderSession?.color
 
-  const product = catalogProducts.find(
-    (entry) => entry.id === currentProductId
-  )
+const product = catalogProducts.find(
+  (entry) => entry.id === currentProductId
+)
 
-  if (!product) {
+if (!product) {
+  return {
+    ok: false,
+    reply: {
+      from: "bot",
+      text: "I couldn’t find the selected bike. Tell me the model again and I’ll try once more.",
+    },
+  }
+}
+
+let variantId = null
+let variantImagePath = null
+
+if (currentColor) {
+  const variant = getColorVariant(product, currentColor)
+
+  if (!variant) {
     return {
       ok: false,
       reply: {
         from: "bot",
-        text: "I couldn’t find the selected bike. Tell me the model again and I’ll try once more.",
+        text: `${currentColor} is not available for ${product.name}.`,
       },
     }
   }
 
-  const gate = await requireCustomerProfile()
+  variantId = variant.id ?? null
+  variantImagePath = variant.image_path ?? null
 
-  if (!gate.ok) {
-    return {
-      ok: false,
-      reply: {
-        from: "bot",
-        text: "Please complete your profile first so I can proceed to checkout.",
-        links: [{ label: "Go to profile", href: "/profile" }],
-      },
-    }
-  }
-
-  // If the product has color variants, make sure a valid one was found
-  if (currentColor && !colorVariant) {
-    return {
-      ok: false,
-      reply: {
-        from: "bot",
-        text: `I couldn't find the ${currentColor} variant for ${product.name}.`,
-      },
-    }
-  }
+  console.log("🛒 AI VARIANT:", {
+    productId: product.id,
+    color: currentColor,
+    variantId,
+    imagePath: variantImagePath,
+  })
+}
 
 const color = item.color || null
 
@@ -2208,6 +2211,7 @@ const startsOrderFlow =
     }
   } else {
     const requestedColor = getColorPreference(userMsg, product)
+    const availableColors = getAvailableColors(product)
     console.log("🎨 COLOR DEBUG:", {
   userMsg,
   productId: product?.id,
@@ -2216,7 +2220,7 @@ const startsOrderFlow =
   availableColors,
   currentSession: aiOrderSession,
 })
-    const availableColors = getAvailableColors(product)
+
     const stock = getTotalStock(product)
     const colorVariant = getColorVariant(product, requestedColor)
 
@@ -2254,7 +2258,7 @@ const startsOrderFlow =
       if (nextSession.cartRequested && stock > 0) {
         const response = await addSelectedProductToCart(
           product.id,
-          null
+          requestedColor
         )
 
         botReply = response.reply
