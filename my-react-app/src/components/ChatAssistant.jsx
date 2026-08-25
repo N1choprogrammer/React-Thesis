@@ -1453,13 +1453,13 @@ if (currentColor) {
   })
 }
 
-const color = item.color || null
+const color = currentColor || null
 
 const result = await addToCart(
-  item.product,
+  product,
   color,
   1,
-  imagePath,
+  variantImagePath,
   variantId
 )
 
@@ -1486,6 +1486,7 @@ const result = await addToCart(
     },
   }
 }
+
 
     const addRequestedItemsToCart = async (requestedItems) => {
       const items = Array.isArray(requestedItems) ? requestedItems : []
