@@ -1728,69 +1728,26 @@ for (const item of items) {
       return
 }
 
-const isColorMessage =
-  !!aiOrderSession?.productId &&
-  !!getColorPreference(
-    userMsg,
-    catalogProducts.find(
+        const orderFlowActive = aiOrderSession.step !== "idle"
+        const currentFlowProduct = aiOrderSession?.productId
+  ? catalogProducts.find(
       (entry) => entry.id === aiOrderSession.productId
     )
-  )
+  : null
 
-const isExistingFlowGenerativeMessage =
-  orderFlowActive &&
-  !cartRequest &&
-  !isColorMessage
+const requestedFlowColor = currentFlowProduct
+  ? getColorPreference(userMsg, currentFlowProduct)
+  : null
 
-console.log("🤖 EXISTING FLOW MESSAGE DECISION:", {
+const isColorMessage = Boolean(requestedFlowColor)
+
+console.log("🎨 EARLY COLOR CHECK:", {
   userMsg,
-  orderFlowActive,
-  cartRequest,
+  orderFlowStep: aiOrderSession?.step,
+  product: currentFlowProduct?.name,
+  requestedFlowColor,
   isColorMessage,
-  isExistingFlowGenerativeMessage,
 })
-
-if (isExistingFlowGenerativeMessage) {
-  console.log("🚨 OPENAI EXISTING FLOW RESPONSE")
-
-  try {
-    await sendMessageToOpenAI(
-      userMsg,
-      catalogProducts,
-      conversationHistory,
-      (streamedText) => {
-        setMessages((prev) => {
-          const updated = [...prev]
-          const lastMessage = updated[updated.length - 1]
-
-          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
-            updated[updated.length - 1] = {
-              ...lastMessage,
-              text: streamedText,
-            }
-          } else {
-            updated.push({
-              from: "bot",
-              text: streamedText,
-              streaming: true,
-            })
-          }
-
-          return updated
-        })
-      }
-    )
-
-    setSending(false)
-    return
-  } catch (error) {
-    console.error(
-      "OpenAI existing flow response failed:",
-      error
-    )
-  }
-}
-        const orderFlowActive = aiOrderSession.step !== "idle"
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
         const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
@@ -2201,6 +2158,11 @@ const isExistingConversationProductMention =
             } : 
             null, 
           })
+const isExistingFlowGenerativeMessage =
+  orderFlowActive &&
+  !cartRequest &&
+  !isColorMessage
+
 
           if (startsProductSelection) { 
             const product = directProductMatch
@@ -2370,6 +2332,43 @@ const isExistingConversationProductMention =
     )
   }
 }
+if (isExistingFlowGenerativeMessage) {
+  console.log("🚨 OPENAI EXISTING FLOW RESPONSE")
+
+  try {
+    await sendMessageToOpenAI(
+      userMsg,
+      catalogProducts,
+      conversationHistory,
+      (streamedText) => {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const lastMessage = updated[updated.length - 1]
+
+          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+            updated[updated.length - 1] = {
+              ...lastMessage,
+              text: streamedText,
+            }
+          } else {
+            updated.push({
+              from: "bot",
+              text: streamedText,
+              streaming: true,
+            })
+          }
+
+          return updated
+        })
+      }
+    )
+
+    setSending(false)
+    return
+  } catch (error) {
+    console.error("OpenAI existing flow response failed:", error)
+  }
+}
 
 const startsOrderFlow =
   !cartRequest &&
@@ -2512,7 +2511,10 @@ const startsOrderFlow =
               links: getProductLinks(matchedProduct),
             }
           }
-        } else if (nextSession.step === "awaiting_color") {
+        } else if (
+  nextSession.step === "awaiting_color" ||
+  nextSession.step === "ready"
+) {
             console.log("🟣 AWAITING COLOR BRANCH REACHED", {
     userMsg,
     sessionStep: nextSession.step,
@@ -2547,7 +2549,46 @@ const startsOrderFlow =
   availableColors,
   currentSession: aiOrderSession,
 })
+if (nextSession.step === "ready" && !requestedColor) {
+  console.log("🎨 READY STATE — NOT A COLOR, USING OPENAI:", {
+    userMsg,
+    product: product.name,
+  })
 
+  try {
+    await sendMessageToOpenAI(
+      userMsg,
+      catalogProducts,
+      conversationHistory,
+      (streamedText) => {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const lastMessage = updated[updated.length - 1]
+
+          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+            updated[updated.length - 1] = {
+              ...lastMessage,
+              text: streamedText,
+            }
+          } else {
+            updated.push({
+              from: "bot",
+              text: streamedText,
+              streaming: true,
+            })
+          }
+
+          return updated
+        })
+      }
+    )
+
+    setSending(false)
+    return
+  } catch (error) {
+    console.error("OpenAI ready-state response failed:", error)
+  }
+}
 // Customer is currently choosing a color,
 // but this message is NOT a color.
 // Let generative AI handle normal conversation instead.
@@ -2786,7 +2827,81 @@ Would you like to add it to your cart?`,
     }
   }
 }
+        if (
+  aiOrderSession?.step === "ready" &&
+  currentFlowProduct &&
+  requestedFlowColor
+) {
+  const colorVariant = getColorVariant(
+    currentFlowProduct,
+    requestedFlowColor
+  )
 
+  const stock = Number(colorVariant?.stock || 0)
+
+  console.log("🎨 READY COLOR FLOW:", {
+    product: currentFlowProduct.name,
+    requestedColor: requestedFlowColor,
+    stock,
+  })
+
+  if (!colorVariant || stock <= 0) {
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "bot",
+        text: `${requestedFlowColor} is currently out of stock for ${currentFlowProduct.name}. Available colors: ${getAvailableColors(currentFlowProduct).join(", ")}.`,
+        links: getProductLinks(currentFlowProduct),
+      },
+    ])
+
+    setSending(false)
+    return
+  }
+
+  setAiOrderSession({
+    step: "ready",
+    productId: currentFlowProduct.id,
+    color: requestedFlowColor,
+    cartRequested: false,
+  })
+
+  const downPayment = getDownPayment(currentFlowProduct.price)
+  const monthlyPayment = getMonthlyPayment(currentFlowProduct.price)
+
+  setMessages((prev) => [
+    ...prev,
+    {
+      from: "bot",
+      text: `${currentFlowProduct.name} in ${requestedFlowColor} is available, with ${stock} unit${stock === 1 ? "" : "s"} currently in stock.
+
+Price: ${formatPeso(currentFlowProduct.price)}
+Down payment: ${formatPeso(downPayment)}
+Estimated 6-month payment: ${formatPeso(monthlyPayment)} per month
+
+Would you like me to add it to your cart?`,
+
+      links: getProductLinks(
+        currentFlowProduct,
+        requestedFlowColor
+      ),
+
+      actions: [
+        {
+          label: "Add to cart",
+          onClick: () =>
+            handleAddToCartFromBot(
+              currentFlowProduct.id,
+              requestedFlowColor
+            ),
+        },
+      ],
+    },
+  ])
+
+  setSending(false)
+  return
+}
         if (!botReply) {
           const fallbackProduct = matchedProduct || catalogProducts.find((entry) => entry.id === nextSession.productId)
           botReply = {
