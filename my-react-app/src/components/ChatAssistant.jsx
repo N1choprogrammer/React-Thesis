@@ -2119,7 +2119,16 @@ if (shouldUseGenerativeAI) {
     console.error("OpenAI generative response failed:", error)
   }
 }
-const startsProductSelection = !!directProductMatch && !orderFlowActive && !cartRequest
+const startsProductSelection =
+  !!directProductMatch &&
+  !cartRequest &&
+  !orderFlowActive
+
+const isExistingConversationProductMention =
+  !!directProductMatch &&
+  orderFlowActive &&
+  !cartRequest
+
         console.log("🛒 PRODUCT SELECTION:", 
           { userMsg, 
             startsProductSelection, 
@@ -2255,6 +2264,51 @@ const startsProductSelection = !!directProductMatch && !orderFlowActive && !cart
           }
         }
       }
+
+      if (isExistingConversationProductMention) {
+  console.log("🤖 EXISTING FLOW PRODUCT MENTION — USING OPENAI:", {
+    userMsg,
+    product: directProductMatch.name,
+  })
+
+  try {
+    await sendMessageToOpenAI(
+      userMsg,
+      catalogProducts,
+      conversationHistory,
+      (streamedText) => {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const lastMessage = updated[updated.length - 1]
+
+          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+            updated[updated.length - 1] = {
+              ...lastMessage,
+              text: streamedText,
+            }
+          } else {
+            updated.push({
+              from: "bot",
+              text: streamedText,
+              streaming: true,
+            })
+          }
+
+          return updated
+        })
+      }
+    )
+
+    setSending(false)
+    return
+  } catch (error) {
+    console.error(
+      "OpenAI existing-flow product response failed:",
+      error
+    )
+  }
+}
+
 const startsOrderFlow =
   !cartRequest &&
   (
