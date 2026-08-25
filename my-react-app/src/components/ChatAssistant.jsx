@@ -1823,12 +1823,13 @@ console.log("🎨 EARLY COLOR CHECK:", {
                     setMessages((prev) => [ 
                       ...prev, 
                       { from: "bot", 
-text: `${product.name} in ${requestedColor} is available, with ${requestedColorStock} unit${ requestedColorStock === 1 ? "" : "s"
-} currently in stock. 
-Price: ${formatPeso(product.price)} 
-Down payment: ${formatPeso(downPayment)} 
-Estimated 6-month payment: ${formatPeso(monthlyPayment)} per month 
-Would you like me to add it to your cart?`, 
+                        text: `${product.name} in ${requestedColor} is available, with ${requestedColorStock} unit${ requestedColorStock === 1 ? "" : "s"
+                        } currently in stock. 
+                        Price: ${formatPeso(product.price)} 
+                        Down payment: ${formatPeso(downPayment)} 
+                        Estimated 6-month payment: ${formatPeso(monthlyPayment)} per month 
+
+                        Would you like me to add it to your cart?`, 
                         links: getProductLinks(product, requestedColor), 
                         actions: [ 
                           { 
@@ -2093,6 +2094,28 @@ const shouldUseGenerativeAI =
   !orderFlowActive &&
   !getOrderIntent(userMsg) &&
   !directProductMatch
+
+console.log(
+  "🤖 GENERATIVE DECISION:",
+  JSON.stringify(
+    {
+      userMsg,
+      cartRequest,
+      initialOrderPrompt,
+      orderFlowActive,
+      orderIntent: getOrderIntent(userMsg),
+      directProductMatch: directProductMatch
+        ? {
+            id: directProductMatch.id,
+            name: directProductMatch.name,
+          }
+        : null,
+      shouldUseGenerativeAI,
+    },
+    null,
+    2
+  )
+)
 
 if (shouldUseGenerativeAI) {
   try {
@@ -2998,7 +3021,7 @@ Would you like me to add it to your cart?`,
   }
 
   const renderMessageText = (msg) => {
-    const text = String(msg?.text || "").replace(/^[ \t]+/gm, "")
+    const text = String(msg?.text || "")
     const links = Array.isArray(msg?.links) ? msg.links : []
     const actions = Array.isArray(msg?.actions) ? msg.actions : []
     const standaloneLinks = links.filter((link) => {
