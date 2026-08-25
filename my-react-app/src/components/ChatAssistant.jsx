@@ -2193,6 +2193,13 @@ const startsOrderFlow =
             }
           }
         } else if (nextSession.step === "awaiting_color") {
+            console.log("🟣 AWAITING COLOR BRANCH REACHED", {
+    userMsg,
+    sessionStep: nextSession.step,
+    productId: nextSession.productId,
+    cartRequested: nextSession.cartRequested,
+    sessionColor: nextSession.color,
+  })
   const product = catalogProducts.find(
     (entry) => entry.id === nextSession.productId
   )
@@ -2314,12 +2321,24 @@ const startsOrderFlow =
       const downPayment = getDownPayment(product.price)
       const monthlyPayment = getMonthlyPayment(product.price)
 
+      console.log("🟢 COLOR DECISION", {
+  requestedColor,
+  requestedColorIsAvailable,
+  requestedColorStock,
+  cartRequested: nextSession.cartRequested,
+  productId: product.id,
+})
+      
       if (nextSession.cartRequested) {
+          console.log("🚀 AUTO ADDING SELECTED COLOR", {
+    productId: product.id,
+    color: requestedColor,
+  })
         const response = await addSelectedProductToCart(
           product.id,
           requestedColor
         )
-
+          console.log("🚀 AUTO ADD RESULT", response)
         botReply = response.reply
 
         // Reset after automatic cart addition
