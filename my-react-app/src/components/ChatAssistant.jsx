@@ -1965,16 +1965,28 @@ const shouldUseGenerativeAI =
   !orderFlowActive &&
   !getOrderIntent(userMsg) &&
   !directProductMatch
-  
-  console.log("🤖 GENERATIVE DECISION:", {
-  userMsg,
-  cartRequest,
-  initialOrderPrompt,
-  orderFlowActive,
-  orderIntent: getOrderIntent(userMsg),
-  directProductMatch,
-  shouldUseGenerativeAI,
-})
+
+console.log(
+  "🤖 GENERATIVE DECISION:",
+  JSON.stringify(
+    {
+      userMsg,
+      cartRequest,
+      initialOrderPrompt,
+      orderFlowActive,
+      orderIntent: getOrderIntent(userMsg),
+      directProductMatch: directProductMatch
+        ? {
+            id: directProductMatch.id,
+            name: directProductMatch.name,
+          }
+        : null,
+      shouldUseGenerativeAI,
+    },
+    null,
+    2
+  )
+)
 
 if (shouldUseGenerativeAI) {
   try {
@@ -2097,7 +2109,26 @@ const startsOrderFlow =
     orderFlowActive ||
     Boolean(directProductMatch)
   )
-
+  console.log(
+  "🛒 ORDER FLOW DECISION:",
+  JSON.stringify(
+    {
+      userMsg,
+      startsOrderFlow,
+      initialOrderPrompt,
+      orderIntent: getOrderIntent(userMsg),
+      orderFlowActive,
+      directProductMatch: directProductMatch
+        ? {
+            id: directProductMatch.id,
+            name: directProductMatch.name,
+          }
+        : null,
+    },
+    null,
+    2
+  )
+)
 
       if (startsOrderFlow || initialOrderPrompt) {
         const nextSession = { ...aiOrderSession }
