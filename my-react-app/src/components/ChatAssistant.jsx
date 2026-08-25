@@ -2512,10 +2512,7 @@ const startsOrderFlow =
               links: getProductLinks(matchedProduct),
             }
           }
-        }  else if (
-  nextSession.step === "awaiting_color" ||
-  nextSession.step === "ready"
-) {
+        } else if (nextSession.step === "awaiting_color") {
             console.log("🟣 AWAITING COLOR BRANCH REACHED", {
     userMsg,
     sessionStep: nextSession.step,
@@ -2550,46 +2547,6 @@ const startsOrderFlow =
   availableColors,
   currentSession: aiOrderSession,
 })
-if (nextSession.step === "ready" && !requestedColor) {
-  console.log("🎨 READY STATE — NOT A COLOR, USING OPENAI:", {
-    userMsg,
-    product: product.name,
-  })
-
-  try {
-    await sendMessageToOpenAI(
-      userMsg,
-      catalogProducts,
-      conversationHistory,
-      (streamedText) => {
-        setMessages((prev) => {
-          const updated = [...prev]
-          const lastMessage = updated[updated.length - 1]
-
-          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
-            updated[updated.length - 1] = {
-              ...lastMessage,
-              text: streamedText,
-            }
-          } else {
-            updated.push({
-              from: "bot",
-              text: streamedText,
-              streaming: true,
-            })
-          }
-
-          return updated
-        })
-      }
-    )
-
-    setSending(false)
-    return
-  } catch (error) {
-    console.error("OpenAI ready-state response failed:", error)
-  }
-}
 
 // Customer is currently choosing a color,
 // but this message is NOT a color.
