@@ -1823,13 +1823,12 @@ console.log("🎨 EARLY COLOR CHECK:", {
                     setMessages((prev) => [ 
                       ...prev, 
                       { from: "bot", 
-                        text: `${product.name} in ${requestedColor} is available, with ${requestedColorStock} unit${ requestedColorStock === 1 ? "" : "s"
-                        } currently in stock. 
-                        Price: ${formatPeso(product.price)} 
-                        Down payment: ${formatPeso(downPayment)} 
-                        Estimated 6-month payment: ${formatPeso(monthlyPayment)} per month 
-
-                        Would you like me to add it to your cart?`, 
+text: `${product.name} in ${requestedColor} is available, with ${requestedColorStock} unit${ requestedColorStock === 1 ? "" : "s"
+} currently in stock. 
+Price: ${formatPeso(product.price)} 
+Down payment: ${formatPeso(downPayment)} 
+Estimated 6-month payment: ${formatPeso(monthlyPayment)} per month 
+Would you like me to add it to your cart?`, 
                         links: getProductLinks(product, requestedColor), 
                         actions: [ 
                           { 
@@ -3021,7 +3020,7 @@ Would you like me to add it to your cart?`,
   }
 
   const renderMessageText = (msg) => {
-    const text = String(msg?.text || "")
+    const text = String(msg?.text || "").replace(/^[ \t]+/gm, "")
     const links = Array.isArray(msg?.links) ? msg.links : []
     const actions = Array.isArray(msg?.actions) ? msg.actions : []
     const standaloneLinks = links.filter((link) => {
