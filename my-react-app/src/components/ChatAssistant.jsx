@@ -2260,8 +2260,7 @@ const startsOrderFlow =
   (
     initialOrderPrompt ||
     getOrderIntent(userMsg) ||
-    orderFlowActive ||
-    Boolean(directProductMatch)
+    orderFlowActive
   )
   console.log(
   "🛒 ORDER FLOW DECISION:",
@@ -2432,6 +2431,55 @@ const startsOrderFlow =
   availableColors,
   currentSession: aiOrderSession,
 })
+
+// Customer is currently choosing a color,
+// but this message is NOT a color.
+// Let generative AI handle normal conversation instead.
+if (!requestedColor) {
+  console.log("🎨 NO COLOR DETECTED — USING GENERATIVE AI:", {
+    userMsg,
+    product: product.name,
+  })
+
+  try {
+    console.log("🚨 OPENAI NON-COLOR RESPONSE")
+
+    await sendMessageToOpenAI(
+      userMsg,
+      catalogProducts,
+      conversationHistory,
+      (streamedText) => {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const lastMessage = updated[updated.length - 1]
+
+          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+            updated[updated.length - 1] = {
+              ...lastMessage,
+              text: streamedText,
+            }
+          } else {
+            updated.push({
+              from: "bot",
+              text: streamedText,
+              streaming: true,
+            })
+          }
+
+          return updated
+        })
+      }
+    )
+
+    setSending(false)
+    return
+  } catch (error) {
+    console.error("OpenAI non-color response failed:", error)
+
+    setSending(false)
+    return
+  } 
+}
 
     const stock = getTotalStock(product)
     const colorVariant = getColorVariant(product, requestedColor)
