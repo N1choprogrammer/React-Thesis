@@ -2094,28 +2094,6 @@ const shouldUseGenerativeAI =
   !getOrderIntent(userMsg) &&
   !directProductMatch
 
-console.log(
-  "🤖 GENERATIVE DECISION:",
-  JSON.stringify(
-    {
-      userMsg,
-      cartRequest,
-      initialOrderPrompt,
-      orderFlowActive,
-      orderIntent: getOrderIntent(userMsg),
-      directProductMatch: directProductMatch
-        ? {
-            id: directProductMatch.id,
-            name: directProductMatch.name,
-          }
-        : null,
-      shouldUseGenerativeAI,
-    },
-    null,
-    2
-  )
-)
-
 if (shouldUseGenerativeAI) {
   try {
     console.log("🚨 OPENAI CALL #1")
