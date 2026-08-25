@@ -1731,6 +1731,15 @@ for (const item of items) {
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
         const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
+        console.log("🔎 PRODUCT MATCH DEBUG:", {
+  userMsg,
+  commonProductMatch,
+  directProductMatch,
+  catalogProducts: catalogProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+  })),
+})
         const contextProduct = catalogProducts.find(
           (entry) => entry.id === aiOrderSession.productId || entry.id === lastProductContextId
         )
