@@ -1731,15 +1731,109 @@ for (const item of items) {
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
         const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
-        console.log("🔎 PRODUCT MATCH DEBUG:", {
-  userMsg,
-  commonProductMatch,
-  directProductMatch,
-  catalogProducts: catalogProducts.map((p) => ({
-    id: p.id,
-    name: p.name,
-  })),
-})
+        
+        if (aiOrderSession?.step === "awaiting_color") { 
+          const product = catalogProducts.find(
+             (entry) => entry.id === aiOrderSession.productId ) 
+             console.log("🎨 COLOR FLOW:", { 
+              userMsg, 
+              productId: aiOrderSession.productId, 
+              productName: product?.name, 
+              session: aiOrderSession, 
+            }) 
+            if (!product) { 
+              setAiOrderSession({ 
+                step: "idle", 
+                productId: null, 
+                color: null, 
+                cartRequested: false, 
+              }) 
+              setMessages((prev) => [ 
+                ...prev, 
+                { 
+                  from: "bot", 
+                  text: "I lost the selected bike. Please tell me the model again.", },
+                 ]) 
+                 setSending(false) 
+                 return 
+                } 
+                const availableColors = getAvailableColors(product) 
+                const requestedColor = getColorPreference(userMsg, product) 
+
+                console.log("🎨 COLOR DETECTION:", { 
+                  userMsg, 
+                  product: product.name, 
+                  requestedColor, 
+                  availableColors, 
+                }) 
+                if (requestedColor) { 
+                  const colorVariant = getColorVariant(product, requestedColor) 
+                  const requestedColorStock = Number(colorVariant?.stock || 0) 
+                  
+                  if (colorVariant && requestedColorStock > 0) { 
+                    setAiOrderSession({ 
+                      step: "ready", 
+                      productId: product.id, 
+                      color: requestedColor, 
+                      cartRequested: false, 
+                    }) 
+                    console.log("✅ COLOR SAVED:", { 
+                      productId: product.id, 
+                      productName: product.name, 
+                      color: requestedColor, 
+                      stock: requestedColorStock, 
+                    }) 
+                    const downPayment = getDownPayment(product.price) 
+                    const monthlyPayment = getMonthlyPayment(product.price) 
+                    setMessages((prev) => [ 
+                      ...prev, 
+                      { from: "bot", 
+                        text: `${product.name} in ${requestedColor} is available, with ${requestedColorStock} unit${ requestedColorStock === 1 ? "" : "s"
+                        } currently in stock. 
+                        Price: ${formatPeso(product.price)} 
+                        Down payment: ${formatPeso(downPayment)} 
+                        Estimated 6-month payment: ${formatPeso(monthlyPayment)} per month 
+
+                        Would you like me to add it to your cart?`, 
+                        links: getProductLinks(product, requestedColor), 
+                        actions: [ 
+                          { 
+                            label: "Add to cart", 
+                            onClick: () => 
+                              handleAddToCartFromBot( 
+                                product.id, 
+                                requestedColor 
+                              ), 
+                          }, 
+                        ], 
+                      }, 
+                    ])
+                     setSending(false) 
+                    return 
+                  } setMessages((prev) => [ 
+                    ...prev, 
+                    { from: "bot", 
+                      text: `${requestedColor} is currently out of stock for ${product.name}. Available colors: ${availableColors.join( 
+                        ", " 
+                      )}.`,
+                      links: getProductLinks(product), 
+                    }, 
+                  ]) 
+                  setSending(false) 
+                  return 
+                }  setMessages((prev) => [ 
+                  ...prev, 
+                  { from: "bot", 
+                    text: `Please choose a color for ${product.name}. Available colors: ${availableColors.join(
+                       ", " 
+                      )}.`, 
+                      links: getProductLinks(product), 
+                    }, 
+                  ]) 
+                  setSending(false) 
+                  return 
+                }
+
         const contextProduct = catalogProducts.find(
           (entry) => entry.id === aiOrderSession.productId || entry.id === lastProductContextId
         )
@@ -2024,8 +2118,84 @@ if (shouldUseGenerativeAI) {
     console.error("OpenAI generative response failed:", error)
   }
 }
+const startsProductSelection = !!directProductMatch && !orderFlowActive && !cartRequest
+        console.log("🛒 PRODUCT SELECTION:", 
+          { userMsg, 
+            startsProductSelection, 
+            directProductMatch: directProductMatch 
+            ? { 
+              id: directProductMatch.id, 
+              name: directProductMatch.name, 
+            } : 
+            null, 
+          })
+
+          if (startsProductSelection) { 
+            const product = directProductMatch
+            lastProductContextIdRef.current = product.id 
+            setLastProductContextId(product.id)
+
+            setAiOrderSession({ 
+              step: "awaiting_color", 
+              productId: product.id, 
+              color: null, 
+              cartRequested: false, 
+            })
+
+            console.log("💾 SAVING PRODUCT FOR COLOR:", 
+              { productId: product.id, 
+                productName: product.name, 
+                step: "awaiting_color", 
+              })
+
+              try { 
+                console.log("🚨 OPENAI PRODUCT RESPONSE") 
+                await sendMessageToOpenAI( 
+                  userMsg, 
+                  catalogProducts, 
+                  conversationHistory, 
+                  (streamedText) => { 
+                    setMessages((prev) => { 
+                      const updated = [
+                        ...prev] 
+                        const lastMessage = updated[updated.length - 1]
+                        if (lastMessage?.from === "bot" && lastMessage?.streaming) { 
+                          updated[updated.length - 1] = { 
+                            ...lastMessage, 
+                            text: streamedText, 
+                          }
+                          } else { 
+                            updated.push({ 
+                              from: "bot", 
+                              text: streamedText, 
+                              streaming: true, 
+                            }) 
+                          } 
+                          return updated 
+                        }) 
+                      } 
+                    )
+
+                    setSending(false) 
+                    return 
+                  } catch (error) { 
+                    console.error( "OpenAI product response failed:", error )
+
+                    const fallbackReply = getCommonQuestionReply( normalizedUserMsg, catalogProducts, product )
+
+                    if (fallbackReply) { 
+                      setMessages((prev) => [ 
+                        ...prev, fallbackReply, 
+                      ]) 
+                    } 
+                    setSending(false) 
+                    return 
+                  } 
+                  }
       if (!initialOrderPrompt && (!getOrderIntent(userMsg) || isInformationalQuestion(normalizedUserMsg))) {
         const commonQuestionReply = getCommonQuestionReply(normalizedUserMsg, catalogProducts, matchedProduct)
+
+        
 
         if (commonQuestionReply) {
           if (matchedProduct?.id) {
