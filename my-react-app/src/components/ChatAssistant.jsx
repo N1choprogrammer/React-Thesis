@@ -1444,13 +1444,6 @@ if (currentColor) {
 
   variantId = variant.id ?? null
   variantImagePath = variant.image_path ?? null
-
-  console.log("🛒 AI VARIANT:", {
-    productId: product.id,
-    color: currentColor,
-    variantId,
-    imagePath: variantImagePath,
-  })
 }
 
 const color = currentColor || null
@@ -1463,15 +1456,7 @@ const result = await addToCart(
   variantId
 )
 
-  console.log("🛒 AI ADD TO CART RESULT:", result)
-
   if (result?.ok) {
-  console.log("🧹 RESETTING AI ORDER SESSION AFTER CART ADD:", {
-    productId: product.id,
-    productName: product.name,
-    color: currentColor,
-  })
-
   setAiOrderSession({
     step: "idle",
     productId: null,
@@ -1631,14 +1616,6 @@ for (const item of items) {
         normalizedUserMsg.includes("add it to my cart") ||
         normalizedUserMsg.includes("add that to my cart") ||
         normalizedUserMsg.includes("add this to my cart")
-          console.log("🛒 CART DEBUG:", {
-    userMsg,
-    normalizedUserMsg,
-    cartRequest,
-    orderFlowStep: aiOrderSession?.step,
-    productId: aiOrderSession?.productId,
-    color: aiOrderSession?.color,
-  })
 
   if (cartRequest) {
     console.log("🛒 CART HANDLER REACHED")
@@ -1756,13 +1733,6 @@ const requestedFlowColor = currentFlowProduct
 
 const isColorMessage = Boolean(requestedFlowColor)
 
-console.log("🎨 EARLY COLOR CHECK:", {
-  userMsg,
-  orderFlowStep: aiOrderSession?.step,
-  product: currentFlowProduct?.name,
-  requestedFlowColor,
-  isColorMessage,
-})
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
         const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
@@ -1770,12 +1740,6 @@ console.log("🎨 EARLY COLOR CHECK:", {
         if (aiOrderSession?.step === "awaiting_color") { 
           const product = catalogProducts.find(
              (entry) => entry.id === aiOrderSession.productId ) 
-             console.log("🎨 COLOR FLOW:", { 
-              userMsg, 
-              productId: aiOrderSession.productId, 
-              productName: product?.name, 
-              session: aiOrderSession, 
-            }) 
             if (!product) { 
               setAiOrderSession({ 
                 step: "idle", 
@@ -1794,13 +1758,6 @@ console.log("🎨 EARLY COLOR CHECK:", {
                 } 
                 const availableColors = getAvailableColors(product) 
                 const requestedColor = getColorPreference(userMsg, product) 
-
-                console.log("🎨 COLOR DETECTION:", { 
-                  userMsg, 
-                  product: product.name, 
-                  requestedColor, 
-                  availableColors, 
-                }) 
                 if (requestedColor) { 
                   const colorVariant = getColorVariant(product, requestedColor) 
                   const requestedColorStock = Number(colorVariant?.stock || 0) 
@@ -1811,12 +1768,6 @@ console.log("🎨 EARLY COLOR CHECK:", {
                       productId: product.id, 
                       color: requestedColor, 
                       cartRequested: false, 
-                    }) 
-                    console.log("✅ COLOR SAVED:", { 
-                      productId: product.id, 
-                      productName: product.name, 
-                      color: requestedColor, 
-                      stock: requestedColorStock, 
                     }) 
                     const downPayment = getDownPayment(product.price) 
                     const monthlyPayment = getMonthlyPayment(product.price) 
@@ -2095,28 +2046,6 @@ const shouldUseGenerativeAI =
   !getOrderIntent(userMsg) &&
   !directProductMatch
 
-console.log(
-  "🤖 GENERATIVE DECISION:",
-  JSON.stringify(
-    {
-      userMsg,
-      cartRequest,
-      initialOrderPrompt,
-      orderFlowActive,
-      orderIntent: getOrderIntent(userMsg),
-      directProductMatch: directProductMatch
-        ? {
-            id: directProductMatch.id,
-            name: directProductMatch.name,
-          }
-        : null,
-      shouldUseGenerativeAI,
-    },
-    null,
-    2
-  )
-)
-
 if (shouldUseGenerativeAI) {
   try {
     console.log("🚨 OPENAI CALL #1")
@@ -2163,16 +2092,6 @@ const isExistingConversationProductMention =
   orderFlowActive &&
   !cartRequest
 
-        console.log("🛒 PRODUCT SELECTION:", 
-          { userMsg, 
-            startsProductSelection, 
-            directProductMatch: directProductMatch 
-            ? { 
-              id: directProductMatch.id, 
-              name: directProductMatch.name, 
-            } : 
-            null, 
-          })
 const isExistingFlowGenerativeMessage =
   orderFlowActive &&
   !cartRequest &&
@@ -2190,12 +2109,6 @@ const isExistingFlowGenerativeMessage =
               color: null, 
               cartRequested: false, 
             })
-
-            console.log("💾 SAVING PRODUCT FOR COLOR:", 
-              { productId: product.id, 
-                productName: product.name, 
-                step: "awaiting_color", 
-              })
 
               try { 
                 console.log("🚨 OPENAI PRODUCT RESPONSE") 
@@ -2854,11 +2767,6 @@ Would you like to add it to your cart?`,
 
   const stock = Number(colorVariant?.stock || 0)
 
-  console.log("🎨 READY COLOR FLOW:", {
-    product: currentFlowProduct.name,
-    requestedColor: requestedFlowColor,
-    stock,
-  })
 
   if (!colorVariant || stock <= 0) {
     setMessages((prev) => [
