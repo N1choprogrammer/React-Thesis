@@ -91,6 +91,9 @@ const selectAttempts = [
     .from("cart_items")
     .select(selectText)
     .eq("cart_id", activeCartId)
+
+  data = res.data
+  error = res.error
   
   if (!error) break
 }
