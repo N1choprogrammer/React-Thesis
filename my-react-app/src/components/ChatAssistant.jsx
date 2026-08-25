@@ -633,6 +633,22 @@ function getRequestedPaymentMonths(message) {
   if (/\b(9 months|nine months|9 month|nine month)\b/.test(msg)) return 9
   if (/\b(6 months|six months|6 month|six month)\b/.test(msg)) return 6
 
+function getCurrentProduct(
+  catalogProducts,
+  aiOrderSession,
+  matchedProduct
+) {
+  if (matchedProduct) return matchedProduct
+
+  if (aiOrderSession?.productId) {
+    return catalogProducts.find(
+      (p) => p.id === aiOrderSession.productId
+    )
+  }
+
+  return null
+}
+
   const match = msg.match(/\b(?:pay for|payment plan for|plan for|for|over|in)\s*(\d{1,2})\s*(?:months?|mos?)\b/)
   if (!match) return null
 
@@ -1712,68 +1728,6 @@ for (const item of items) {
       return
 }
 
-const isColorMessage =
-  !!aiOrderSession?.productId &&
-  !!getColorPreference(
-    userMsg,
-    catalogProducts.find(
-      (entry) => entry.id === aiOrderSession.productId
-    )
-  )
-
-const isExistingFlowGenerativeMessage =
-  orderFlowActive &&
-  !cartRequest &&
-  !isColorMessage
-
-console.log("🤖 EXISTING FLOW MESSAGE DECISION:", {
-  userMsg,
-  orderFlowActive,
-  cartRequest,
-  isColorMessage,
-  isExistingFlowGenerativeMessage,
-})
-
-if (isExistingFlowGenerativeMessage) {
-  console.log("🚨 OPENAI EXISTING FLOW RESPONSE")
-
-  try {
-    await sendMessageToOpenAI(
-      userMsg,
-      catalogProducts,
-      conversationHistory,
-      (streamedText) => {
-        setMessages((prev) => {
-          const updated = [...prev]
-          const lastMessage = updated[updated.length - 1]
-
-          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
-            updated[updated.length - 1] = {
-              ...lastMessage,
-              text: streamedText,
-            }
-          } else {
-            updated.push({
-              from: "bot",
-              text: streamedText,
-              streaming: true,
-            })
-          }
-
-          return updated
-        })
-      }
-    )
-
-    setSending(false)
-    return
-  } catch (error) {
-    console.error(
-      "OpenAI existing flow response failed:",
-      error
-    )
-  }
-}
         const orderFlowActive = aiOrderSession.step !== "idle"
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
@@ -1896,6 +1850,41 @@ if (isExistingFlowGenerativeMessage) {
       const orderStatusReply = await getOrderStatusReply(userMsg, supabase)
       const requestedItems = getRequestedItemsFromMessage(userMsg, catalogProducts)
       const requestedMonths = getRequestedPaymentMonths(userMsg)
+      function getCurrentProduct(
+  catalogProducts,
+  aiOrderSession,
+  matchedProduct,
+  lastProductContextId
+) {
+  // 1. Product explicitly identified in the current message
+  if (matchedProduct) {
+    return matchedProduct
+  }
+
+  // 2. Most recently established product in the conversation
+  if (lastProductContextId) {
+    const contextProduct = catalogProducts.find(
+      (product) => product.id === lastProductContextId
+    )
+
+    if (contextProduct) {
+      return contextProduct
+    }
+  }
+
+  // 3. Product currently selected in the order flow
+  if (aiOrderSession?.productId) {
+    const sessionProduct = catalogProducts.find(
+      (product) => product.id === aiOrderSession.productId
+    )
+
+    if (sessionProduct) {
+      return sessionProduct
+    }
+  }
+
+  return null
+}
       function isPaymentQuestion(message) {
       const msg = normalizeText(message)
 
@@ -2461,10 +2450,7 @@ const startsOrderFlow =
               links: getProductLinks(matchedProduct),
             }
           }
-        }  else if (
-  nextSession.step === "awaiting_color" ||
-  nextSession.step === "ready"
-) {
+        } else if (nextSession.step === "awaiting_color") {
             console.log("🟣 AWAITING COLOR BRANCH REACHED", {
     userMsg,
     sessionStep: nextSession.step,
@@ -2499,46 +2485,6 @@ const startsOrderFlow =
   availableColors,
   currentSession: aiOrderSession,
 })
-if (nextSession.step === "ready" && !requestedColor) {
-  console.log("🎨 READY STATE — NOT A COLOR, USING OPENAI:", {
-    userMsg,
-    product: product.name,
-  })
-
-  try {
-    await sendMessageToOpenAI(
-      userMsg,
-      catalogProducts,
-      conversationHistory,
-      (streamedText) => {
-        setMessages((prev) => {
-          const updated = [...prev]
-          const lastMessage = updated[updated.length - 1]
-
-          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
-            updated[updated.length - 1] = {
-              ...lastMessage,
-              text: streamedText,
-            }
-          } else {
-            updated.push({
-              from: "bot",
-              text: streamedText,
-              streaming: true,
-            })
-          }
-
-          return updated
-        })
-      }
-    )
-
-    setSending(false)
-    return
-  } catch (error) {
-    console.error("OpenAI ready-state response failed:", error)
-  }
-}
 
 // Customer is currently choosing a color,
 // but this message is NOT a color.
