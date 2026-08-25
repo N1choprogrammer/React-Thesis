@@ -1728,6 +1728,68 @@ for (const item of items) {
       return
 }
 
+const isColorMessage =
+  !!aiOrderSession?.productId &&
+  !!getColorPreference(
+    userMsg,
+    catalogProducts.find(
+      (entry) => entry.id === aiOrderSession.productId
+    )
+  )
+
+const isExistingFlowGenerativeMessage =
+  orderFlowActive &&
+  !cartRequest &&
+  !isColorMessage
+
+console.log("🤖 EXISTING FLOW MESSAGE DECISION:", {
+  userMsg,
+  orderFlowActive,
+  cartRequest,
+  isColorMessage,
+  isExistingFlowGenerativeMessage,
+})
+
+if (isExistingFlowGenerativeMessage) {
+  console.log("🚨 OPENAI EXISTING FLOW RESPONSE")
+
+  try {
+    await sendMessageToOpenAI(
+      userMsg,
+      catalogProducts,
+      conversationHistory,
+      (streamedText) => {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const lastMessage = updated[updated.length - 1]
+
+          if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+            updated[updated.length - 1] = {
+              ...lastMessage,
+              text: streamedText,
+            }
+          } else {
+            updated.push({
+              from: "bot",
+              text: streamedText,
+              streaming: true,
+            })
+          }
+
+          return updated
+        })
+      }
+    )
+
+    setSending(false)
+    return
+  } catch (error) {
+    console.error(
+      "OpenAI existing flow response failed:",
+      error
+    )
+  }
+}
         const orderFlowActive = aiOrderSession.step !== "idle"
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
