@@ -1965,6 +1965,16 @@ const shouldUseGenerativeAI =
   !orderFlowActive &&
   !getOrderIntent(userMsg) &&
   !directProductMatch
+  
+  console.log("🤖 GENERATIVE DECISION:", {
+  userMsg,
+  cartRequest,
+  initialOrderPrompt,
+  orderFlowActive,
+  orderIntent: getOrderIntent(userMsg),
+  directProductMatch,
+  shouldUseGenerativeAI,
+})
 
 if (shouldUseGenerativeAI) {
   try {
