@@ -2512,7 +2512,10 @@ const startsOrderFlow =
               links: getProductLinks(matchedProduct),
             }
           }
-        } else if (nextSession.step === "awaiting_color") {
+        } else if (
+  (nextSession.step === "awaiting_color" || nextSession.step === "ready") &&
+  isColorMessage
+) {
             console.log("🟣 AWAITING COLOR BRANCH REACHED", {
     userMsg,
     sessionStep: nextSession.step,
