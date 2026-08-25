@@ -1284,370 +1284,437 @@ To get started, tell me a bit about what you're looking for – for example:
 What's most important to you?`,
     },
   ])
-  const [sending, setSending] = useState(false)
-  const [catalogProducts, setCatalogProducts] = useState([])
-  const [typingFrame, setTypingFrame] = useState(0)
-  const [lastProductContextId, setLastProductContextId] = useState(null)
-  const lastProductContextIdRef = useRef(null)
-  const [aiOrderSession, setAiOrderSession] = useState({
-    step: "idle",
-    productId: null,
-    color: null,
-    cartRequested: false,
-  })
+    const [sending, setSending] = useState(false)
+    const [catalogProducts, setCatalogProducts] = useState([])
+    const [typingFrame, setTypingFrame] = useState(0)
+    const [lastProductContextId, setLastProductContextId] = useState(null)
+    const lastProductContextIdRef = useRef(null)
+    const [aiOrderSession, setAiOrderSession] = useState({
+      step: "idle",
+      productId: null,
+      color: null,
+      cartRequested: false,
+    })
 
-  useEffect(() => {
-    const loadCatalog = async () => {
-      let data = null
-      let error = null
+    useEffect(() => {
+      const loadCatalog = async () => {
+        let data = null
+        let error = null
 
-      const primary = await supabase
-        .from("products")
-        .select(`
-          id,
-          short_id,
-          name,
-          description,
-          price,
-          stock,
-          is_active,
-          product_color_stock (
-            color,
-            stock
-          )
-        `)
-        .eq("is_active", true)
+        const primary = await supabase
+  .from("products")
+  .select(`
+    id,
+    short_id,
+    name,
+    description,
+    price,
+    stock,
+    is_active,
+    product_color_stock (
+      id,
+      color,
+      stock,
+      image_path
+    )
+  `)
+  .eq("is_active", true)
 
-      data = primary.data
-      error = primary.error
+        data = primary.data
+        error = primary.error
 
-      if (error && String(error.message || "").toLowerCase().includes("is_active")) {
-        const fallback = await supabase
-          .from("products")
-          .select(`
-            id,
-            short_id,
-            name,
-            description,
-            price,
-            stock,
-            product_color_stock (
-              color,
-              stock
-            )
-          `)
-        data = fallback.data
-        error = fallback.error
+        if (error && String(error.message || "").toLowerCase().includes("is_active")) {
+          const fallback = await supabase
+  .from("products")
+  .select(`
+    id,
+    short_id,
+    name,
+    description,
+    price,
+    stock,
+    product_color_stock (
+      id,
+      color,
+      stock,
+      image_path
+    )
+  `)
+          data = fallback.data
+          error = fallback.error
+        }
+
+        if (error) {
+          console.error("SpeeGo AI catalog load error:", error)
+          return
+        }
+
+        setCatalogProducts(
+    (data || [])
+      .filter((p) => p?.is_active !== false)
+      .map((product) => {
+        const colorStock = Array.isArray(product.product_color_stock)
+          ? product.product_color_stock
+          : []
+
+        const totalColorStock = colorStock.reduce(
+          (total, color) => total + Number(color.stock || 0),
+          0
+        )
+
+        return {
+          ...product,
+          stock: totalColorStock,
+        }
+      })
+  )
       }
 
-      if (error) {
-        console.error("SpeeGo AI catalog load error:", error)
+      loadCatalog()
+    }, [])
+
+    useEffect(() => {
+      const handleProductContext = (event) => {
+        const productId = event?.detail?.id || null
+        if (productId) {
+          lastProductContextIdRef.current = productId
+          setLastProductContextId(productId)
+        }
+      }
+
+      window.addEventListener("speego:product-context", handleProductContext)
+      return () => window.removeEventListener("speego:product-context", handleProductContext)
+    }, [])
+
+    useEffect(() => {
+      if (!sending) {
         return
       }
 
-      setCatalogProducts(
-  (data || [])
-    .filter((p) => p?.is_active !== false)
-    .map((product) => {
-      const colorStock = Array.isArray(product.product_color_stock)
-        ? product.product_color_stock
-        : []
+      const intervalId = setInterval(() => {
+        setTypingFrame((prev) => (prev + 1) % 4)
+      }, 420)
 
-      const totalColorStock = colorStock.reduce(
-        (total, color) => total + Number(color.stock || 0),
-        0
-      )
+      return () => clearInterval(intervalId)
+    }, [sending])
 
-      return {
-        ...product,
-        stock: totalColorStock,
-      }
-    })
-)
+    const handleToggle = () => {
+      setOpen((prev) => !prev)
     }
 
-    loadCatalog()
-  }, [])
+const addSelectedProductToCart = async (
+  productIdOverride = null,
+  colorOverride = null
+) => {
+  const currentProductId =
+    productIdOverride ?? aiOrderSession?.productId
 
-  useEffect(() => {
-    const handleProductContext = (event) => {
-      const productId = event?.detail?.id || null
-      if (productId) {
-        lastProductContextIdRef.current = productId
-        setLastProductContextId(productId)
-      }
-    }
+  const currentColor =
+    colorOverride ?? aiOrderSession?.color
 
-    window.addEventListener("speego:product-context", handleProductContext)
-    return () => window.removeEventListener("speego:product-context", handleProductContext)
-  }, [])
+  const product = catalogProducts.find(
+    (entry) => entry.id === currentProductId
+  )
 
-  useEffect(() => {
-    if (!sending) {
-      return
-    }
-
-    const intervalId = setInterval(() => {
-      setTypingFrame((prev) => (prev + 1) % 4)
-    }, 420)
-
-    return () => clearInterval(intervalId)
-  }, [sending])
-
-  const handleToggle = () => {
-    setOpen((prev) => !prev)
-  }
-
-  const addSelectedProductToCart = async (productIdOverride = null, colorOverride = null) => {
-    const currentProductId = productIdOverride ?? aiOrderSession?.productId
-    const currentColor = colorOverride ?? aiOrderSession?.color
-    const product = catalogProducts.find((entry) => entry.id === currentProductId)
-
-    if (!product) {
-      return {
-        ok: false,
-        reply: {
-          from: "bot",
-          text: "I couldn’t find the selected bike. Tell me the model again and I’ll try once more.",
-        },
-      }
-    }
-
-    const gate = await requireCustomerProfile()
-    if (!gate.ok) {
-      return {
-        ok: false,
-        reply: {
-          from: "bot",
-          text: "Please complete your profile first so I can proceed to checkout.",
-          links: [{ label: "Go to profile", href: "/profile" }],
-        },
-      }
-    }
-
-    const result = await addToCart(product, currentColor, 1)
-    if (result?.ok) {
-      navigate("/cart")
-      return {
-        ok: true,
-        reply: {
-          from: "bot",
-          text: `${product.name}${currentColor ? ` in ${currentColor}` : ""} was added to your cart.`,
-          links: [{ label: "View cart", href: "/cart" }],
-        },
-      }
-    }
-
+  if (!product) {
     return {
       ok: false,
       reply: {
         from: "bot",
-        text: "I couldn’t add that item to your cart right now. Please try again from the shop page.",
+        text: "I couldn’t find the selected bike. Tell me the model again and I’ll try once more.",
       },
     }
   }
 
-  const addRequestedItemsToCart = async (requestedItems) => {
-    const items = Array.isArray(requestedItems) ? requestedItems : []
-    if (items.length === 0) return null
+  const gate = await requireCustomerProfile()
 
-    const missingColor = items.find((item) => {
-      const availableColors = getAvailableColors(item.product)
-      return availableColors.length > 0 && !item.color
-    })
-
-    if (missingColor) {
-      return {
-        from: "bot",
-        text: `Please choose a color for ${missingColor.product.name}. Available colors: ${getAvailableColors(missingColor.product).join(", ")}.`,
-        links: getProductLinks(missingColor.product),
-      }
-    }
-
-    const unavailableColor = items.find((item) => {
-      if (!item.color) return false
-      const colorVariant = getColorVariant(item.product, item.color)
-      return !colorVariant || Number(colorVariant?.stock || 0) <= 0
-    })
-
-    if (unavailableColor) {
-      return {
-        from: "bot",
-        text: `The chosen color for ${unavailableColor.product.name} is not available. Please choose among the colors provided: ${getAvailableColors(unavailableColor.product).join(", ")}.`,
-        links: getProductLinks(unavailableColor.product),
-      }
-    }
-
-    const gate = await requireCustomerProfile()
-    if (!gate.ok) {
-      return {
+  if (!gate.ok) {
+    return {
+      ok: false,
+      reply: {
         from: "bot",
         text: "Please complete your profile first so I can proceed to checkout.",
         links: [{ label: "Go to profile", href: "/profile" }],
-      }
-    }
-
-    const added = []
-    for (const item of items) {
-      const result = await addToCart(item.product, item.color || null, 1)
-      if (!result?.ok) {
-        return {
-          from: "bot",
-          text: `I couldn't add ${item.product.name} to your cart right now. Please try again from the shop page.`,
-        }
-      }
-      added.push(`${item.product.name}${item.color ? ` in ${item.color}` : ""}`)
-    }
-
-    navigate("/cart")
-    return {
-      from: "bot",
-      text: `${added.join(" and ")} ${added.length === 1 ? "was" : "were"} added to your cart.`,
-      links: [{ label: "View cart", href: "/cart" }],
+      },
     }
   }
 
-  const handleAddToCartFromBot = async (productIdOverride = null, colorOverride = null) => {
-    setMessage("")
-    setSending(true)
-    const response = await addSelectedProductToCart(productIdOverride, colorOverride)
-    setMessages((prev) => [...prev, response.reply])
-    setSending(false)
-  } 
+  // If the product has color variants, make sure a valid one was found
+  if (currentColor && !colorVariant) {
+    return {
+      ok: false,
+      reply: {
+        from: "bot",
+        text: `I couldn't find the ${currentColor} variant for ${product.name}.`,
+      },
+    }
+  }
 
+const color = item.color || null
 
-    const handleSendMessage = async (rawMessage, options = {}) => {
-      const { skipUserMessage = false } = options
-      const userMsg = String(rawMessage || "").trim()
-      if (!userMsg) return
+const result = await addToCart(
+  item.product,
+  color,
+  1,
+  imagePath,
+  variantId
+)
 
-      if (!skipUserMessage) {
-        setMessages((prev) => [...prev, { from: "user", text: userMsg }])
+  console.log("🛒 AI ADD TO CART RESULT:", result)
+
+  if (result?.ok) {
+    navigate("/cart")
+
+    return {
+      ok: true,
+      reply: {
+        from: "bot",
+        text: `${product.name}${currentColor ? ` in ${currentColor}` : ""} was added to your cart.`,
+        links: [{ label: "View cart", href: "/cart" }],
+      },
+    }
+  }
+
+  return {
+    ok: false,
+    reply: {
+      from: "bot",
+      text: "I couldn’t add that item to your cart right now. Please try again from the shop page.",
+    },
+  }
+}
+
+    const addRequestedItemsToCart = async (requestedItems) => {
+      const items = Array.isArray(requestedItems) ? requestedItems : []
+      if (items.length === 0) return null
+
+      const missingColor = items.find((item) => {
+        const availableColors = getAvailableColors(item.product)
+        return availableColors.length > 0 && !item.color
+      })
+
+      if (missingColor) {
+        return {
+          from: "bot",
+          text: `Please choose a color for ${missingColor.product.name}. Available colors: ${getAvailableColors(missingColor.product).join(", ")}.`,
+          links: getProductLinks(missingColor.product),
+        }
       }
+
+      const unavailableColor = items.find((item) => {
+        if (!item.color) return false
+        const colorVariant = getColorVariant(item.product, item.color)
+        return !colorVariant || Number(colorVariant?.stock || 0) <= 0
+      })
+
+      if (unavailableColor) {
+        return {
+          from: "bot",
+          text: `The chosen color for ${unavailableColor.product.name} is not available. Please choose among the colors provided: ${getAvailableColors(unavailableColor.product).join(", ")}.`,
+          links: getProductLinks(unavailableColor.product),
+        }
+      }
+
+      const gate = await requireCustomerProfile()
+      if (!gate.ok) {
+        return {
+          from: "bot",
+          text: "Please complete your profile first so I can proceed to checkout.",
+          links: [{ label: "Go to profile", href: "/profile" }],
+        }
+      }
+
+const added = []
+
+for (const item of items) {
+  const color = item.color || null
+
+  const colorVariant = color
+    ? getColorVariant(item.product, color)
+    : null
+
+  const variantId = colorVariant?.id ?? null
+  const imagePath = colorVariant?.image_path ?? null
+
+  console.log("🛒 REQUESTED ITEM ADD:", {
+    productId: item.product.id,
+    productName: item.product.name,
+    color,
+    variantId,
+    imagePath,
+  })
+
+  const result = await addToCart(
+    item.product,
+    color,
+    1,
+    imagePath,
+    variantId
+  )
+
+  console.log("🛒 REQUESTED ITEM RESULT:", result)
+
+  if (!result?.ok) {
+    return {
+      from: "bot",
+      text: `I couldn't add ${item.product.name} to your cart right now. Please try again from the shop page.`,
+    }
+  }
+
+  added.push(
+    `${item.product.name}${color ? ` in ${color}` : ""}`
+  )
+}
+
+      navigate("/cart")
+      return {
+        from: "bot",
+        text: `${added.join(" and ")} ${added.length === 1 ? "was" : "were"} added to your cart.`,
+        links: [{ label: "View cart", href: "/cart" }],
+      }
+    }
+
+    const handleAddToCartFromBot = async (productIdOverride = null, colorOverride = null) => {
       setMessage("")
       setSending(true)
+      const response = await addSelectedProductToCart(productIdOverride, colorOverride)
+      setMessages((prev) => [...prev, response.reply])
+      setSending(false)
+    } 
 
-      try {
-        const normalizedUserMsg = normalizeText(userMsg)
-        const conversationHistory = messages.map((msg) => ({
-          role: msg.from === "bot" ? "assistant" : "user",
-          content: msg.text,
-        }))
-        const cartRequest =
-      isCartConfirmation(userMsg) ||
-      normalizedUserMsg.includes("add to cart") ||
-      normalizedUserMsg.includes("add it to cart") ||
-      normalizedUserMsg.includes("add that to cart") ||
-      normalizedUserMsg.includes("add this to cart") ||
-      normalizedUserMsg.includes("put it in my cart") ||
-      normalizedUserMsg.includes("put that in my cart") ||
-      normalizedUserMsg.includes("put this in my cart") ||
-      normalizedUserMsg.includes("add it to my cart") ||
-      normalizedUserMsg.includes("add that to my cart") ||
-      normalizedUserMsg.includes("add this to my cart")
-        console.log("🛒 CART DEBUG:", {
-  userMsg,
-  normalizedUserMsg,
-  cartRequest,
-  orderFlowStep: aiOrderSession?.step,
-  productId: aiOrderSession?.productId,
-  color: aiOrderSession?.color,
-})
 
-if (cartRequest) {
-  console.log("🛒 CART HANDLER REACHED")
-   const productId =
-        aiOrderSession?.productId ||
-        lastProductContextIdRef.current ||
-        lastProductContextId
+      const handleSendMessage = async (rawMessage, options = {}) => {
+        const { skipUserMessage = false } = options
+        const userMsg = String(rawMessage || "").trim()
+        if (!userMsg) return
 
-      const color = aiOrderSession?.color || null
+        if (!skipUserMessage) {
+          setMessages((prev) => [...prev, { from: "user", text: userMsg }])
+        }
+        setMessage("")
+        setSending(true)
 
-      console.log("🛒 CART SELECTION:", {
-        productId,
-        color,
-      })
+        try {
+          const normalizedUserMsg = normalizeText(userMsg)
+          const conversationHistory = messages.map((msg) => ({
+            role: msg.from === "bot" ? "assistant" : "user",
+            content: msg.text,
+          }))
+          const cartRequest =
+        isCartConfirmation(userMsg) ||
+        normalizedUserMsg.includes("add to cart") ||
+        normalizedUserMsg.includes("add it to cart") ||
+        normalizedUserMsg.includes("add that to cart") ||
+        normalizedUserMsg.includes("add this to cart") ||
+        normalizedUserMsg.includes("put it in my cart") ||
+        normalizedUserMsg.includes("put that in my cart") ||
+        normalizedUserMsg.includes("put this in my cart") ||
+        normalizedUserMsg.includes("add it to my cart") ||
+        normalizedUserMsg.includes("add that to my cart") ||
+        normalizedUserMsg.includes("add this to my cart")
+          console.log("🛒 CART DEBUG:", {
+    userMsg,
+    normalizedUserMsg,
+    cartRequest,
+    orderFlowStep: aiOrderSession?.step,
+    productId: aiOrderSession?.productId,
+    color: aiOrderSession?.color,
+  })
 
-      if (!productId) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            from: "bot",
-            text: "Please choose an e-bike first before adding it to your cart.",
-          },
-        ])
+  if (cartRequest) {
+    console.log("🛒 CART HANDLER REACHED")
+    const productId =
+          aiOrderSession?.productId ||
+          lastProductContextIdRef.current ||
+          lastProductContextId
 
-        setSending(false)
-        return
-      }
+        const color = aiOrderSession?.color || null
 
-      const product = catalogProducts.find(
-        (entry) => entry.id === productId
-      )
+        console.log("🛒 CART SELECTION:", {
+          productId,
+          color,
+        })
 
-      if (!product) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            from: "bot",
-            text: "I couldn't find that e-bike anymore. Please select the model again.",
-          },
-        ])
+        if (!productId) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              from: "bot",
+              text: "Please choose an e-bike first before adding it to your cart.",
+            },
+          ])
 
-        setSending(false)
-        return
-      }
+          setSending(false)
+          return
+        }
 
-      const availableColors = getAvailableColors(product)
+        const product = catalogProducts.find(
+          (entry) => entry.id === productId
+        )
 
-      // Product requires a color but customer hasn't selected one
-      if (availableColors.length > 0 && !color) {
-        console.log("🛒 COLOR REQUIRED:", availableColors)
+        if (!product) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              from: "bot",
+              text: "I couldn't find that e-bike anymore. Please select the model again.",
+            },
+          ])
 
-        setAiOrderSession((prev) => ({
-          ...prev,
-          step: "awaiting_color",
+          setSending(false)
+          return
+        }
+
+        const availableColors = getAvailableColors(product)
+
+        // Product requires a color but customer hasn't selected one
+        if (availableColors.length > 0 && !color) {
+          console.log("🛒 COLOR REQUIRED:", availableColors)
+
+          setAiOrderSession((prev) => ({
+            ...prev,
+            step: "awaiting_color",
+            productId: product.id,
+            color: null,
+            cartRequested: true,
+          }))
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              from: "bot",
+              text: `Sure! Which color would you like for ${product.name}? Available colors: ${availableColors.join(", ")}.`,
+              links: getProductLinks(product),
+            },
+          ])
+
+          setSending(false)
+          return
+        }
+
+        // ============================================
+        // ACTUALLY ADD TO CART
+        // ============================================
+
+        console.log("🛒 ADDING TO CART:", {
           productId: product.id,
-          color: null,
-          cartRequested: true,
-        }))
+          color,
+        })
+
+        const response = await addSelectedProductToCart(
+          product.id,
+          color
+        )
+
+        console.log("🛒 ADD TO CART RESPONSE:", response)
 
         setMessages((prev) => [
           ...prev,
-          {
-            from: "bot",
-            text: `Sure! Which color would you like for ${product.name}? Available colors: ${availableColors.join(", ")}.`,
-            links: getProductLinks(product),
-          },
+          response.reply,
         ])
 
-        setSending(false)
-        return
-      }
-
-      // ============================================
-      // ACTUALLY ADD TO CART
-      // ============================================
-
-      console.log("🛒 ADDING TO CART:", {
-        productId: product.id,
-        color,
-      })
-
-      const response = await addSelectedProductToCart(
-        product.id,
-        color
-      )
-
-      console.log("🛒 ADD TO CART RESPONSE:", response)
-
-      setMessages((prev) => [
-        ...prev,
-        response.reply,
-      ])
-
-      setAiOrderSession({
-        step: "idle",
+        setAiOrderSession({
+          step: "idle",
         productId: null,
         color: null,
         cartRequested: false,

@@ -53,11 +53,12 @@ export function CartProvider({ children }) {
       let data = null
       let error = null
 
-      const selectAttempts = [
+const selectAttempts = [
   `
     id,
     cart_id,
     product_id,
+    variant_id,
     quantity,
     color,
     image_path,
@@ -68,6 +69,7 @@ export function CartProvider({ children }) {
     id,
     cart_id,
     product_id,
+    variant_id,
     quantity,
     color,
     price_snapshot,
@@ -77,6 +79,7 @@ export function CartProvider({ children }) {
     id,
     cart_id,
     product_id,
+    variant_id,
     quantity,
     color,
     products:products ( name, price, stock )
