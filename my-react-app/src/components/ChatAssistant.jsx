@@ -1466,18 +1466,33 @@ const result = await addToCart(
   console.log("🛒 AI ADD TO CART RESULT:", result)
 
   if (result?.ok) {
-    navigate("/cart")
+  console.log("🧹 RESETTING AI ORDER SESSION AFTER CART ADD:", {
+    productId: product.id,
+    productName: product.name,
+    color: currentColor,
+  })
 
-    return {
-      ok: true,
-      reply: {
-        from: "bot",
-        text: `${product.name}${currentColor ? ` in ${currentColor}` : ""} was added to your cart.`,
-        links: [{ label: "View cart", href: "/cart" }],
-      },
-    }
+  setAiOrderSession({
+    step: "idle",
+    productId: null,
+    color: null,
+    cartRequested: false,
+  })
+
+  setLastProductContextId(null)
+  lastProductContextIdRef.current = null
+
+  navigate("/cart")
+
+  return {
+    ok: true,
+    reply: {
+      from: "bot",
+      text: `${product.name}${currentColor ? ` in ${currentColor}` : ""} was added to your cart.`,
+      links: [{ label: "View cart", href: "/cart" }],
+    },
   }
-
+}
   return {
     ok: false,
     reply: {
