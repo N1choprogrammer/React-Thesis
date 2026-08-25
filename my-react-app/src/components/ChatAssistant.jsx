@@ -2512,8 +2512,8 @@ const startsOrderFlow =
             }
           }
         } else if (
-  nextSession.step === "awaiting_color" ||
-  nextSession.step === "ready"
+  (nextSession.step === "awaiting_color" || nextSession.step === "ready") &&
+  isColorMessage
 ) {
             console.log("🟣 AWAITING COLOR BRANCH REACHED", {
     userMsg,
