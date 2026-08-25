@@ -1963,7 +1963,8 @@ const shouldUseGenerativeAI =
   !cartRequest &&
   !initialOrderPrompt &&
   !orderFlowActive &&
-  !getOrderIntent(userMsg)
+  !getOrderIntent(userMsg) &&
+  !directProductMatch
 
 if (shouldUseGenerativeAI) {
   try {
