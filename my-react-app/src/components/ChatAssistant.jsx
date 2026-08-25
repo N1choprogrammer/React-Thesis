@@ -2328,53 +2328,33 @@ const startsOrderFlow =
   cartRequested: nextSession.cartRequested,
   productId: product.id,
 })
-      
-      if (nextSession.cartRequested) {
-          console.log("🚀 AUTO ADDING SELECTED COLOR", {
-    productId: product.id,
-    color: requestedColor,
-  })
-        const response = await addSelectedProductToCart(
-          product.id,
-          requestedColor
-        )
-          console.log("🚀 AUTO ADD RESULT", response)
-        botReply = response.reply
 
-        // Reset after automatic cart addition
-        nextSession.step = "idle"
-        nextSession.productId = null
-        nextSession.color = null
-        nextSession.cartRequested = false
-      } else {
-        nextSession.step = "ready"
+  botReply = {
+    from: "bot",
 
-        botReply = {
-          from: "bot",
+    text: `${product.name} in ${requestedColor} is available. ${requestedColorStock} left in stock.
 
-          text: `${product.name} in ${requestedColor} is available. ${requestedColorStock} left in stock. Down payment: ${formatPeso(
-            downPayment
-          )}. Estimated monthly payment for a 6-month plan: ${formatPeso(
-            monthlyPayment
-          )}. Would you like me to add it to your cart?`,
+Down payment: ${formatPeso(downPayment)}.
+Estimated monthly payment for a 6-month plan: ${formatPeso(monthlyPayment)}/month.
 
-          links: getProductLinks(
-            product,
+Would you like to add it to your cart?`,
+
+    links: getProductLinks(
+      product,
+      requestedColor
+    ),
+
+    actions: [
+      {
+        label: "Add to cart",
+        onClick: () =>
+          handleAddToCartFromBot(
+            product.id,
             requestedColor
           ),
-
-          actions: [
-            {
-              label: "Add to cart",
-              onClick: () =>
-                handleAddToCartFromBot(
-                  product.id,
-                  requestedColor
-                ),
             },
           ],
         }
-      }
 
     // Requested color doesn't exist / is out of stock
     } else if (requestedColor) {
