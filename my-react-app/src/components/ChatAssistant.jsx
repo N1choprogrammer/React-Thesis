@@ -2048,59 +2048,40 @@ if (shouldUseGenerativeAI) {
           setSending(false)
           return
         }
-                // OpenAI generative fallback
-        try {
-          console.log("🚨 OPENAI CALL #2")
-          const aiReply = await sendMessageToOpenAI(
-  userMsg,
-  catalogProducts,
-  conversationHistory,
-  (streamedText) => {
-    setMessages((prev) => {
-      const updated = [...prev]
-      const lastMessage = updated[updated.length - 1]
+        if (!directProductMatch && !matchedProduct) {
+          try {
+            console.log("🚨 OPENAI FALLBACK")
+            await sendMessageToOpenAI(
+              userMsg,
+              catalogProducts,
+              conversationHistory,
+              (streamedText) => {
+                setMessages((prev) => {
+                  const updated = [...prev]
+                  const lastMessage = updated[updated.length - 1]
 
-      if (lastMessage?.from === "bot" && lastMessage?.streaming) {
-        updated[updated.length - 1] = {
-          ...lastMessage,
-          text: streamedText,
-        }
-      } else {
-        updated.push({
-          from: "bot",
-          text: streamedText,
-          streaming: true,
-        })
-      }
+                  if (lastMessage?.from === "bot" && lastMessage?.streaming) {
+                    updated[updated.length - 1] = {
+                      ...lastMessage,
+                      text: streamedText,
+                    }
+                  } else {
+                    updated.push({
+                      from: "bot",
+                      text: streamedText,
+                      streaming: true,
+                    })
+                  }
 
-      return updated
-    })
-  }
-)
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              from: "bot",
-              text: aiReply,
-            },
-          ])
-
-          setSending(false)
-          return
-        } catch (error) {
-          console.error("OpenAI fallback failed:", error)
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              from: "bot",
-              text: "I'm sorry, I couldn't process that question right now. Please try asking about our e-bike models, prices, or available options.",
-            },
-          ])
-
-          setSending(false)
-          return
+                  return updated
+                })
+              }
+            )
+            setSending(false)
+            return
+          } catch (error) {
+            console.error("OpenAI generative fallback failed:", error)
+          }
         }
       }
 const startsOrderFlow =
