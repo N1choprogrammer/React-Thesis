@@ -1869,8 +1869,63 @@ if (
                  setSending(false) 
                  return 
                 } 
+                  // ============================================
+  // NON-COLOR MESSAGE → LET OPENAI RESPOND
+  // ============================================
+
+  const requestedColor = getColorPreference(userMsg, product)
+
+  if (!requestedColor && !directProductMatch) {
+    console.log(
+      "🤖 AWAITING COLOR — NON-COLOR MESSAGE → OPENAI:",
+      userMsg
+    )
+
+    try {
+      await sendMessageToOpenAI(
+        userMsg,
+        catalogProducts,
+        conversationHistory,
+        (streamedText) => {
+          setMessages((prev) => {
+            const updated = [...prev]
+            const lastMessage = updated[updated.length - 1]
+
+            if (
+              lastMessage?.from === "bot" &&
+              lastMessage?.streaming
+            ) {
+              updated[updated.length - 1] = {
+                ...lastMessage,
+                text: streamedText,
+              }
+            } else {
+              updated.push({
+                from: "bot",
+                text: streamedText,
+                streaming: true,
+              })
+            }
+
+            return updated
+          })
+        }
+      )
+
+      setSending(false)
+      return
+
+    } catch (error) {
+      console.error(
+        "OpenAI awaiting-color response failed:",
+        error
+      )
+
+      setSending(false)
+      return
+    }
+  }
                 const availableColors = getAvailableColors(product) 
-                const requestedColor = getColorPreference(userMsg, product) 
                 if (requestedColor) { 
                   const colorVariant = getColorVariant(product, requestedColor) 
                   const requestedColorStock = Number(colorVariant?.stock || 0) 
