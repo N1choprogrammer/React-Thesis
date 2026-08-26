@@ -58,12 +58,12 @@ function buildEmailContent(params: {
     status === "confirmed"
       ? "Your SPEEGO order has been confirmed"
       : status === "completed"
-      ? "Thank you for choosing SPEEGO E-Bikes"
+      ? "Your SPEEGO order has been completed"
       : "Update on your SPEEGO order"
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #18181b;">
-      <h2 style="margin-bottom: 8px;">SPEEGO Order Update</h2>
+      <h2 style="margin-bottom: 8px;">${status === "completed" ? "Your order has been completed" : "SPEEGO Order Update"}</h2>
       <p style="margin: 0 0 16px;">Hi ${customerName || "Customer"},</p>
       <p style="margin: 0 0 12px;">
         Your order <strong>${orderId}</strong> has been <strong>${statusLabel}</strong>.

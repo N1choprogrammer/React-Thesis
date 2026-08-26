@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     const gmailWebhookUrl = Deno.env.get("GMAIL_WEBHOOK_URL")
     const gmailWebhookSecret = Deno.env.get("GMAIL_WEBHOOK_SECRET")
     const fromEmail = Deno.env.get("NOTIFY_FROM_EMAIL")
-    const adminNotifyEmails = parseAdminEmails(Deno.env.get("ADMIN_NOTIFY_EMAILS"))
+    const configuredAdminEmails = parseAdminEmails(Deno.env.get("ADMIN_NOTIFY_EMAILS"))
 
     if (!supabaseUrl || !serviceRole) {
       return new Response(JSON.stringify({ error: "Supabase env not configured." }), {
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (adminNotifyEmails.length === 0) {
+    if (configuredAdminEmails.length === 0) {
       return new Response(JSON.stringify({ error: "Missing ADMIN_NOTIFY_EMAILS secret." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -194,6 +194,18 @@ Deno.serve(async (req) => {
     if (orderErr || !order) {
       return new Response(JSON.stringify({ error: "Order not found." }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      })
+    }
+
+    const customerEmail = String(order.customer_email || "").trim().toLowerCase()
+    const adminNotifyEmails = configuredAdminEmails.filter(
+      (email) => email.toLowerCase() !== customerEmail
+    )
+
+    if (adminNotifyEmails.length === 0) {
+      return new Response(JSON.stringify({ error: "No admin notification recipients configured." }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       })
     }
