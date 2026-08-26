@@ -28,6 +28,8 @@ export default function Login() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
+  const [privacyAccepted, setPrivacyAccepted] = useState(false)
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -116,6 +118,12 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     resetMessages()
+
+    if (!privacyAccepted) {
+      setError("Please read and agree to the Privacy Policy before continuing.")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -191,6 +199,12 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     if (!GOOGLE_ENABLED) return
     resetMessages()
+
+    if (!privacyAccepted) {
+      setError("Please read and agree to the Privacy Policy before continuing.")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -216,6 +230,11 @@ export default function Login() {
   const handleForgotPassword = () => {
     resetMessages()
     navigate("/forgot-password", { state: { email } })
+  }
+
+  const handlePrivacyLinkClick = (e) => {
+    e.preventDefault()
+    setShowPrivacyPolicy(true)
   }
 
   const panelClass =
@@ -546,7 +565,97 @@ export default function Login() {
                     ? "Log in"
                     : "Sign up"}
                 </button>
+
+                <div className={["flex items-start gap-3 text-xs leading-5", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
+                  <input
+                    id="privacyAccepted"
+                    type="checkbox"
+                    checked={privacyAccepted}
+                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                    className="mt-1 h-4 w-4 shrink-0 accent-red-600"
+                  />
+                  <label htmlFor="privacyAccepted">
+                    I have read and agree to the{" "}
+                    <button
+                      type="button"
+                      onClick={handlePrivacyLinkClick}
+                      className={["font-semibold underline underline-offset-2", isDark ? "text-red-300 hover:text-red-200" : "text-red-700 hover:text-red-600"].join(" ")}
+                    >
+                      Privacy Policy
+                    </button>
+                    .
+                  </label>
+                </div>
               </form>
+
+              {showPrivacyPolicy && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+                  role="presentation"
+                  onMouseDown={(e) => {
+                    if (e.target === e.currentTarget) setShowPrivacyPolicy(false)
+                  }}
+                >
+                  <section
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="privacy-policy-title"
+                    className={["max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border p-6 shadow-2xl", isDark ? "border-white/10 bg-zinc-950 text-zinc-200" : "border-black/10 bg-white text-zinc-800"].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h2 id="privacy-policy-title" className={['text-2xl font-bold', isDark ? 'text-white' : 'text-zinc-900'].join(' ')}>
+                          Privacy Policy
+                        </h2>
+                        <p className="mt-1 text-xs text-zinc-500">Effective date: August 26, 2026</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowPrivacyPolicy(false)}
+                        aria-label="Close Privacy Policy"
+                        className={smallBtnClass}
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div className="mt-5 space-y-5 text-sm leading-6">
+                      <div>
+                        <h3 className="font-semibold">1. Information We Collect</h3>
+                        <p>SpeeGo E-bikes may collect your name, email address, contact number, delivery information, account information, order details, payment-related information or proof of payment, technical information such as IP address and browser or device information, and messages voluntarily provided to the AI Sales Bot.</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">2. How We Collect Information</h3>
+                        <p>Information may be collected when you create or update an account, browse the website, use your cart, place an order, submit payment proof, contact us, or communicate with the AI Sales Bot. Some technical information may be collected automatically.</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">3. Why We Process Your Information</h3>
+                        <p>We may use information to manage accounts and orders, verify payment submissions, communicate with customers, provide AI-assisted recommendations and support, improve the website, maintain security, prevent unauthorized activity, and keep accurate business records.</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">4. How We Protect Your Information</h3>
+                        <p>SpeeGo E-bikes takes reasonable measures to protect personal information from unauthorized access, disclosure, alteration, or misuse. Access should be limited to authorized personnel who need it for their responsibilities.</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">5. Sharing of Information</h3>
+                        <p>Personal information will only be shared when necessary to operate the website, process an order, provide requested services, comply with legal requirements, or protect the rights and security of SpeeGo E-bikes and its customers.</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">6. Data Retention</h3>
+                        <p>Personal information will be retained only as long as necessary to fulfill these purposes, maintain business and transaction records, resolve disputes, and comply with applicable legal or regulatory requirements.</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">7. Your Privacy Rights</h3>
+                        <p>Depending on applicable law, customers may request access to or correction or deletion of their personal information, ask how it is used, and raise concerns about its processing. Contact us regarding privacy-related requests.</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">8. Contact Us</h3>
+                        <p>SpeeGo E-bikes<br />Email: ianneclauren969@gmail.com<br />Contact number: 0919-949-1986<br />Business address: Maharlika Highway Brgy. Andal Alino, Talavera, Nueva Ecija, Philippines</p>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              )}
 
               <div className={["mt-5 rounded-xl px-4 py-3 text-sm", isDark ? "border border-white/10 bg-white/5 text-zinc-300" : "border border-black/10 bg-zinc-50 text-zinc-700"].join(" ")}>
                 {mode === "login" ? (
