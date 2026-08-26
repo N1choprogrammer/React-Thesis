@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom"
 import { supabase } from "../services/supabaseClient"
 import { useTheme } from "../context/ThemeContext"
 
-const API_BASE_URL =
-  import.meta.env.VITE_BACKEND_URL || "https://react-thesis.onrender.com"
 const DELETE_CONFIRMATION_TEXT = "DELETE"
 
 export default function Profile() {
@@ -204,18 +202,22 @@ export default function Profile() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/delete-account`, {
-        method: "POST",
+      const { error: deleteError } = await supabase.functions.invoke("delete-account", {
+        body: {},
         headers: {
           Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
         },
       })
 
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to delete your account.")
+      if (deleteError) {
+        let errorMessage = "Failed to delete your account."
+        try {
+          const payload = await deleteError.context?.json?.()
+          errorMessage = payload?.error || errorMessage
+        } catch {
+          // Keep the generic message when the Edge Function response is not JSON.
+        }
+        throw new Error(errorMessage)
       }
 
       await supabase.auth.signOut()
