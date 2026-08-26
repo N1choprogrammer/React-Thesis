@@ -1733,10 +1733,123 @@ const requestedFlowColor = currentFlowProduct
 
 const isColorMessage = Boolean(requestedFlowColor)
 
+const startsProductSelection =
+  !!directProductMatch &&
+  !cartRequest
+
+  console.log("🛒 PRODUCT SELECTION:", {
+  userMsg,
+  startsProductSelection,
+  orderFlowActive,
+  directProductMatch: directProductMatch
+    ? {
+        id: directProductMatch.id,
+        name: directProductMatch.name,
+      }
+    : null,
+})
+
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
         const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
         
+        // ============================================
+// SWITCH PRODUCT EVEN IF CURRENTLY AWAITING COLOR
+// ============================================
+console.log("🔎 PRODUCT SWITCH CHECK:", {
+  userMsg,
+  directProductMatch: directProductMatch
+    ? {
+        id: directProductMatch.id,
+        name: directProductMatch.name,
+      }
+    : null,
+
+  currentSessionProductId: aiOrderSession?.productId,
+
+  currentSessionProductName: catalogProducts.find(
+    (p) => p.id === aiOrderSession?.productId
+  )?.name,
+
+  cartRequest,
+
+  isDifferentProduct:
+    Boolean(directProductMatch) &&
+    directProductMatch.id !== aiOrderSession?.productId,
+})
+if (
+  directProductMatch &&
+  !cartRequest &&
+  directProductMatch.id !== aiOrderSession?.productId
+) {
+  const product = directProductMatch
+
+  console.log("🔄 PRODUCT SWITCH DETECTED:", {
+    fromProductId: aiOrderSession?.productId,
+    fromProductName: catalogProducts.find(
+      (p) => p.id === aiOrderSession?.productId
+    )?.name,
+    toProductId: product.id,
+    toProductName: product.name,
+  })
+
+  lastProductContextIdRef.current = product.id
+  setLastProductContextId(product.id)
+
+  setAiOrderSession({
+    step: "awaiting_color",
+    productId: product.id,
+    color: null,
+    cartRequested: false,
+  })
+
+  try {
+    console.log("🚨 OPENAI PRODUCT SWITCH RESPONSE")
+
+    await sendMessageToOpenAI(
+      userMsg,
+      catalogProducts,
+      conversationHistory,
+      (streamedText) => {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const lastMessage = updated[updated.length - 1]
+
+          if (
+            lastMessage?.from === "bot" &&
+            lastMessage?.streaming
+          ) {
+            updated[updated.length - 1] = {
+              ...lastMessage,
+              text: streamedText,
+            }
+          } else {
+            updated.push({
+              from: "bot",
+              text: streamedText,
+              streaming: true,
+            })
+          }
+
+          return updated
+        })
+      }
+    )
+
+    setSending(false)
+    return
+
+  } catch (error) {
+    console.error(
+      "OpenAI product switch response failed:",
+      error
+    )
+
+    setSending(false)
+    return
+  }
+}
+
         if (aiOrderSession?.step === "awaiting_color") { 
           const product = catalogProducts.find(
              (entry) => entry.id === aiOrderSession.productId ) 
@@ -2081,21 +2194,6 @@ if (shouldUseGenerativeAI) {
     console.error("OpenAI generative response failed:", error)
   }
 }
-const startsProductSelection =
-  !!directProductMatch &&
-  !cartRequest
-
-  console.log("🛒 PRODUCT SELECTION:", {
-  userMsg,
-  startsProductSelection,
-  orderFlowActive,
-  directProductMatch: directProductMatch
-    ? {
-        id: directProductMatch.id,
-        name: directProductMatch.name,
-      }
-    : null,
-})
 
 const isExistingConversationProductMention =
   !!directProductMatch &&
