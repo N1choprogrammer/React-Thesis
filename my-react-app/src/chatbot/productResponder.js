@@ -130,9 +130,70 @@ function findBestProductMatch(message, products) {
 }
 
 export function findProductMatch(message, products) {
-  return findBestProductMatch(message, products)
-}
+  const msg = normalize(message)
 
+  if (!msg) return null
+
+  const list = Array.isArray(products) ? products : []
+
+  // Q5
+  if (/\b(q5|speego q5)\b/.test(msg)) {
+    return (
+      list.find((product) =>
+        normalize(product?.name || "").includes("q5")
+      ) || null
+    )
+  }
+
+  // EcoSada
+  if (
+    msg.includes("eco sada") ||
+    msg.includes("ecosada") ||
+    /\bsada\b/.test(msg)
+  ) {
+    return (
+      list.find((product) => {
+        const name = normalize(product?.name || "")
+        return name.includes("ecosada") || name.includes("sada")
+      }) || null
+    )
+  }
+
+  // Eco Sports
+  if (
+    msg.includes("eco sports") ||
+    msg.includes("ecosports")
+  ) {
+    return (
+      list.find((product) =>
+        normalize(product?.name || "").includes("eco sports")
+      ) || null
+    )
+  }
+
+  // Eco Trip
+  if (
+    msg.includes("eco trip") ||
+    msg.includes("ecotrip")
+  ) {
+    return (
+      list.find((product) =>
+        normalize(product?.name || "").includes("eco trip")
+      ) || null
+    )
+  }
+
+  // SpeeGo 4 Wheel Solar
+  if (
+    msg.includes("4 wheel") ||
+    msg.includes("four wheel") ||
+    msg.includes("4wheel")
+  ) {
+    return list.find(isFourWheelSolarProduct) || null
+  }
+
+  return null
+}
 // Add this after your other utility functions (e.g., after getUseCase)
 
 function extractUserContext(message, products) {

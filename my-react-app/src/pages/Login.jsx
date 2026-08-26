@@ -626,7 +626,7 @@ export default function Login() {
                       </div>
                       <div>
                         <h3 className="font-semibold">2. How We Collect Information</h3>
-                        <p>Information may be collected when you create or update an account, browse the website, use your cart, place an order, submit payment proof, contact us, or communicate with the AI Sales Bot. Some technical information may be collected automatically.</p>
+                        <p>Information may be collected when you create or update an account, browse the website, use your cart, place an order, submit payment proof, contact us, or communicate with the AI Sales Bot.</p>
                       </div>
                       <div>
                         <h3 className="font-semibold">3. Why We Process Your Information</h3>
