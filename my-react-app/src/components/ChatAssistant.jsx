@@ -2083,8 +2083,19 @@ if (shouldUseGenerativeAI) {
 }
 const startsProductSelection =
   !!directProductMatch &&
-  !cartRequest &&
-  !orderFlowActive
+  !cartRequest
+
+  console.log("🛒 PRODUCT SELECTION:", {
+  userMsg,
+  startsProductSelection,
+  orderFlowActive,
+  directProductMatch: directProductMatch
+    ? {
+        id: directProductMatch.id,
+        name: directProductMatch.name,
+      }
+    : null,
+})
 
 const isExistingConversationProductMention =
   !!directProductMatch &&
