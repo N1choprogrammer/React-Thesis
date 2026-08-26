@@ -1720,38 +1720,38 @@ for (const item of items) {
       return
 }
 
-        const orderFlowActive = aiOrderSession.step !== "idle"
-        const currentFlowProduct = aiOrderSession?.productId
-  ? catalogProducts.find(
-      (entry) => entry.id === aiOrderSession.productId
-    )
-  : null
-
-const requestedFlowColor = currentFlowProduct
-  ? getColorPreference(userMsg, currentFlowProduct)
-  : null
-
-const isColorMessage = Boolean(requestedFlowColor)
-
-const startsProductSelection =
-  !!directProductMatch &&
-  !cartRequest
-
-  console.log("🛒 PRODUCT SELECTION:", {
-  userMsg,
-  startsProductSelection,
-  orderFlowActive,
-  directProductMatch: directProductMatch
-    ? {
-        id: directProductMatch.id,
-        name: directProductMatch.name,
-      }
-    : null,
-})
-
         const initialOrderPrompt = isInitialOrderPrompt(userMsg)
         const commonProductMatch = findCommonProductMatch(userMsg, catalogProducts)
         const directProductMatch = initialOrderPrompt ? null : commonProductMatch || findProductMatch(userMsg, catalogProducts)
+
+        const orderFlowActive = aiOrderSession.step !== "idle"
+        const currentFlowProduct = aiOrderSession?.productId
+          ? catalogProducts.find(
+              (entry) => entry.id === aiOrderSession.productId
+            )
+          : null
+
+        const requestedFlowColor = currentFlowProduct
+          ? getColorPreference(userMsg, currentFlowProduct)
+          : null
+
+        const isColorMessage = Boolean(requestedFlowColor)
+
+        const startsProductSelection =
+          !!directProductMatch &&
+          !cartRequest
+
+        console.log("🛒 PRODUCT SELECTION:", {
+          userMsg,
+          startsProductSelection,
+          orderFlowActive,
+          directProductMatch: directProductMatch
+            ? {
+                id: directProductMatch.id,
+                name: directProductMatch.name,
+              }
+            : null,
+        })
         
         // ============================================
 // SWITCH PRODUCT EVEN IF CURRENTLY AWAITING COLOR
