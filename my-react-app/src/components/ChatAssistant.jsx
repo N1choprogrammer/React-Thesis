@@ -1011,7 +1011,7 @@ function getCommonQuestionReply(message, products, matchedProduct) {
       if (/\b(1 year|one year|12 months|twelve months)\b/.test(msg)) {
         return {
           from: "bot",
-          text: "The 1-year payment plan is available, but it has added interest. The minimum down payment is still 20% of the order total, then the remaining balance is divided across 12 months.",
+          text: "Yes. A 12-month/1-year payment plan is available. It includes added interest, and the minimum down payment is 20% of the order total. Tell me which model you are interested in and I can estimate the monthly payment.",
         }
       }
 
