@@ -88,6 +88,19 @@ export default function AdminNotifications() {
     })
   }, [rows, search, statusFilter, resultFilter])
 
+  const newestOrderId = useMemo(() => {
+    return rows.reduce((newestId, row) => {
+      if (!row.order_id || !row.created_at) return newestId
+
+      const rowTime = new Date(row.created_at).getTime()
+      const newestRow = rows.find((item) => item.order_id === newestId)
+      const newestTime = newestRow?.created_at ? new Date(newestRow.created_at).getTime() : -Infinity
+
+      if (Number.isNaN(rowTime) || rowTime <= newestTime) return newestId
+      return row.order_id
+    }, null)
+  }, [rows])
+
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-white/10 bg-zinc-950/85 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
@@ -163,20 +176,28 @@ export default function AdminNotifications() {
               {filteredRows.map((row) => {
                 const items = orderItemsByOrderId[row.order_id] || []
                 const isNewOrder = String(row.status || "").toLowerCase() === "new_order"
+                const isNewestOrder = row.order_id === newestOrderId
                 return (
                 <tr
                   key={row.id}
                   className={[
                     "align-top transition-colors",
-                    isNewOrder
-                      ? "border-l-2 border-l-emerald-400 bg-emerald-500/[0.08] hover:bg-emerald-500/[0.14]"
+                    isNewestOrder
+                      ? "border-l-2 border-l-amber-300 bg-amber-500/[0.12] hover:bg-amber-500/[0.18]"
+                      : isNewOrder
+                        ? "border-l-2 border-l-emerald-400 bg-emerald-500/[0.08] hover:bg-emerald-500/[0.14]"
                       : "hover:bg-white/[0.03]",
                   ].join(" ")}
                 >
                   <td className="px-4 py-3 text-zinc-300">{formatDateTime(row.created_at)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      {isNewOrder && (
+                      {isNewestOrder && (
+                        <span className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-500/20 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-amber-200">
+                          Newest
+                        </span>
+                      )}
+                      {!isNewestOrder && isNewOrder && (
                         <span className="inline-flex items-center rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-200">
                           New
                         </span>
