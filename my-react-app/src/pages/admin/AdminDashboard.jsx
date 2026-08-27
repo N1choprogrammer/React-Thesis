@@ -145,7 +145,6 @@ export default function AdminDashboard() {
           <div className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
             <section className="rounded-3xl border border-white/10 bg-zinc-950/85 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-lg font-semibold text-white">Orders and sales trend</h3>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <div className="inline-flex rounded-xl border border-white/10 bg-black/30 p-1">
                     {["week", "month", "year"].map((mode) => <button key={mode} type="button" onClick={() => setChartMode(mode)} className={["rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition", chartMode === mode ? "bg-red-600 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-white"].join(" ")}>{mode}</button>)}

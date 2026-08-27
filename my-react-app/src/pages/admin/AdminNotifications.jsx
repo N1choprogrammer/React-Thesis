@@ -162,16 +162,39 @@ export default function AdminNotifications() {
             <tbody className="divide-y divide-white/10 text-zinc-200">
               {filteredRows.map((row) => {
                 const items = orderItemsByOrderId[row.order_id] || []
+                const isNewOrder = String(row.status || "").toLowerCase() === "new_order"
                 return (
-                <tr key={row.id} className="align-top">
+                <tr
+                  key={row.id}
+                  className={[
+                    "align-top transition-colors",
+                    isNewOrder
+                      ? "border-l-2 border-l-emerald-400 bg-emerald-500/[0.08] hover:bg-emerald-500/[0.14]"
+                      : "hover:bg-white/[0.03]",
+                  ].join(" ")}
+                >
                   <td className="px-4 py-3 text-zinc-300">{formatDateTime(row.created_at)}</td>
                   <td className="px-4 py-3">
-                    <span className="font-mono text-xs text-zinc-300" title={row.order_id || ""}>
-                      {shortOrderId(row.order_id)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {isNewOrder && (
+                        <span className="inline-flex items-center rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-200">
+                          New
+                        </span>
+                      )}
+                      <span className="font-mono text-xs text-zinc-300" title={row.order_id || ""}>
+                        {shortOrderId(row.order_id)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold capitalize text-zinc-200">
+                    <span
+                      className={[
+                        "rounded-full border px-2.5 py-1 text-xs font-semibold capitalize",
+                        isNewOrder
+                          ? "border-emerald-300/30 bg-emerald-500/20 text-emerald-200"
+                          : "border-white/10 bg-white/5 text-zinc-200",
+                      ].join(" ")}
+                    >
                       {row.status}
                     </span>
                   </td>
