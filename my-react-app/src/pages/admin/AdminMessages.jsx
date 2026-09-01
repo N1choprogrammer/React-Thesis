@@ -81,7 +81,7 @@ export default function AdminMessages({ onLiveChatCountChange }) {
   useEffect(() => {
     if (typeof onLiveChatCountChange === "function") {
       const unreadCount = chatThreads.filter((thread) =>
-        ["open", "waiting_admin"].includes(thread.status || "open"),
+        (thread.status || "waiting_admin") === "waiting_admin",
       ).length
 
       onLiveChatCountChange(unreadCount)
@@ -274,7 +274,7 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-semibold text-white">{thread.customer_name || "Customer"}</span>
                       <span className="rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-emerald-200">
-                        {thread.status || "open"}
+                        {thread.status || "waiting_admin"}
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-zinc-400">{thread.phone || "No phone"}</p>
@@ -304,7 +304,7 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                           </p>
                         </div>
                         <span className="inline-flex w-fit rounded-full border border-red-300/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-red-100">
-                          {currentThread.status || "open"}
+                          {currentThread.status || "waiting_admin"}
                         </span>
                       </div>
                     </div>
