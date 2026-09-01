@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
+import { useTheme } from "../../context/ThemeContext"
 import { supabase } from "../../services/supabaseClient"
 
 export default function AdminMessages({ onLiveChatCountChange }) {
+  const { isDark } = useTheme()
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("live-chat")
@@ -229,26 +231,43 @@ export default function AdminMessages({ onLiveChatCountChange }) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-white/10 bg-zinc-950/85 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)] sm:p-6">
-        <div className="inline-flex items-center rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-red-200">
+      <div className={[
+        "rounded-3xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)] sm:p-6",
+        isDark ? "border-white/10 bg-zinc-950/85" : "border-black/10 bg-white/90",
+      ].join(" ")}>
+        <div className={[
+          "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]",
+          isDark ? "border-red-400/20 bg-red-500/10 text-red-200" : "border-red-300 bg-red-50 text-red-700",
+        ].join(" ")}>
           Inbox
         </div>
-        <h2 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+        <h2 className={[
+          "mt-3 text-2xl font-bold tracking-tight sm:text-3xl",
+          isDark ? "text-white" : "text-zinc-900",
+        ].join(" ")}>
           Customer messages
         </h2>
-        <p className="mt-2 text-sm leading-6 text-zinc-300">
+        <p className={[
+          "mt-2 text-sm leading-6",
+          isDark ? "text-zinc-300" : "text-zinc-600",
+        ].join(" ")}>
           Keep the original contact form and add a live admin chat experience alongside it.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-zinc-950/85 p-2 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
+      <div className={[
+        "rounded-2xl border p-2 shadow-[0_12px_32px_rgba(0,0,0,0.12)]",
+        isDark ? "border-white/10 bg-zinc-950/85" : "border-black/10 bg-white/90",
+      ].join(" ")}>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setActiveTab("live-chat")}
             className={[
               "rounded-xl border px-4 py-2 text-sm font-semibold transition",
-              "border-red-400/40 bg-red-500/10 text-red-100",
+              isDark
+                ? "border-red-400/40 bg-red-500/10 text-red-100"
+                : "border-red-300 bg-red-50 text-red-700",
             ].join(" ")}
           >
             Live chat
@@ -258,11 +277,17 @@ export default function AdminMessages({ onLiveChatCountChange }) {
 
       {activeTab === "inbox" ? (
         loading ? (
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/85 p-5 text-sm text-zinc-300">
+          <div className={[
+            "rounded-2xl border p-5 text-sm",
+            isDark ? "border-white/10 bg-zinc-950/85 text-zinc-300" : "border-black/10 bg-white/90 text-zinc-600",
+          ].join(" ")}>
             Loading messages...
           </div>
         ) : messages.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/85 p-5 text-sm text-zinc-300">
+          <div className={[
+            "rounded-2xl border p-5 text-sm",
+            isDark ? "border-white/10 bg-zinc-950/85 text-zinc-300" : "border-black/10 bg-white/90 text-zinc-600",
+          ].join(" ")}>
             No messages yet.
           </div>
         ) : (
@@ -292,13 +317,25 @@ export default function AdminMessages({ onLiveChatCountChange }) {
         )
       ) : (
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/85 p-4 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
-            <h3 className="text-lg font-semibold text-white">Active chats</h3>
+          <div className={[
+            "rounded-2xl border p-4 shadow-[0_12px_32px_rgba(0,0,0,0.12)]",
+            isDark ? "border-white/10 bg-zinc-950/85" : "border-black/10 bg-white/90",
+          ].join(" ")}>
+            <h3 className={[
+              "text-lg font-semibold",
+              isDark ? "text-white" : "text-zinc-900",
+            ].join(" ")}>Active chats</h3>
 
             {chatThreadsLoading ? (
-              <p className="mt-4 text-sm text-zinc-300">Loading live chat threads...</p>
+              <p className={[
+                "mt-4 text-sm",
+                isDark ? "text-zinc-300" : "text-zinc-600",
+              ].join(" ")}>Loading live chat threads...</p>
             ) : chatThreads.length === 0 ? (
-              <p className="mt-4 text-sm text-zinc-300">No live chat sessions yet.</p>
+              <p className={[
+                "mt-4 text-sm",
+                isDark ? "text-zinc-300" : "text-zinc-600",
+              ].join(" ")}>No live chat sessions yet.</p>
             ) : (
               <div className="mt-4 space-y-2">
                 {chatThreads.map((thread) => {
@@ -310,8 +347,12 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                       className={[
                         "relative w-full rounded-xl border p-3 text-left transition",
                         isWaitingReply
-                          ? "border-red-500/40 bg-[#2a1718] shadow-[0_0_0_1px_rgba(248,113,113,0.12)]"
-                          : "border-white/10 bg-[#17181d] hover:bg-[#1d1f26]",
+                          ? isDark
+                            ? "border-red-500/40 bg-[#2a1718] shadow-[0_0_0_1px_rgba(248,113,113,0.12)]"
+                            : "border-red-200 bg-red-50 shadow-[0_0_0_1px_rgba(239,68,68,0.10)]"
+                          : isDark
+                            ? "border-white/10 bg-[#17181d] hover:bg-[#1d1f26]"
+                            : "border-black/10 bg-zinc-100 hover:bg-zinc-200",
                         selectedThreadId === thread.id ? "ring-1 ring-red-400/60" : "",
                       ].join(" ")}
                     >
@@ -321,20 +362,33 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                         className="w-full text-left"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <span className="font-semibold text-white">{thread.customer_name || "Customer"}</span>
+                          <span className={[
+                            "font-semibold",
+                            isDark ? "text-white" : "text-zinc-900",
+                          ].join(" ")}>{thread.customer_name || "Customer"}</span>
                           <span
                             className={[
                               "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] font-semibold",
                               isWaitingReply
-                                ? "border-red-400/30 bg-red-500/15 text-red-100"
-                                : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
+                                ? isDark
+                                  ? "border-red-400/30 bg-red-500/15 text-red-100"
+                                  : "border-red-300 bg-red-100 text-red-700"
+                                : isDark
+                                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                                  : "border-emerald-300 bg-emerald-100 text-emerald-700",
                             ].join(" ")}
                           >
                             {thread.status || "waiting_admin"}
                           </span>
                         </div>
-                        <p className="mt-2 text-xs text-zinc-300">{thread.phone || "No phone"}</p>
-                        <p className="mt-1 text-xs text-zinc-400">{formatDateTime(thread.updated_at)}</p>
+                        <p className={[
+                          "mt-2 text-xs",
+                          isDark ? "text-zinc-300" : "text-zinc-600",
+                        ].join(" ")}>{thread.phone || "No phone"}</p>
+                        <p className={[
+                          "mt-1 text-xs",
+                          isDark ? "text-zinc-400" : "text-zinc-500",
+                        ].join(" ")}>{formatDateTime(thread.updated_at)}</p>
                       </button>
 
                       <button
@@ -343,7 +397,12 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                           event.stopPropagation()
                           void deleteChatThread(thread.id)
                         }}
-                        className="absolute right-2 top-2 rounded-full border border-red-400/30 bg-[#2b1215] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-red-100 transition hover:bg-red-500/10"
+                        className={[
+                          "absolute right-2 top-2 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] transition hover:bg-red-500/10",
+                          isDark
+                            ? "border-red-400/30 bg-[#2b1215] text-red-100"
+                            : "border-red-200 bg-red-50 text-red-700",
+                        ].join(" ")}
                         aria-label="Delete thread"
                       >
                         Delete
@@ -355,9 +414,15 @@ export default function AdminMessages({ onLiveChatCountChange }) {
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-[#0d0d10] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.35)]">
+          <div className={[
+            "rounded-2xl border p-4 shadow-[0_12px_32px_rgba(0,0,0,0.12)]",
+            isDark ? "border-white/10 bg-[#0d0d10]" : "border-black/10 bg-white/90",
+          ].join(" ")}>
             {!selectedThreadId ? (
-              <div className="flex h-full min-h-[320px] items-center justify-center text-sm text-zinc-300">
+              <div className={[
+                "flex h-full min-h-[320px] items-center justify-center text-sm",
+                isDark ? "text-zinc-300" : "text-zinc-600",
+              ].join(" ")}>
                 Select a customer thread to continue the live conversation.
               </div>
             ) : (
@@ -365,15 +430,29 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                 {(() => {
                   const currentThread = chatThreads.find((thread) => thread.id === selectedThreadId)
                   return currentThread ? (
-                    <div className="mb-4 border-b border-white/10 pb-4">
+                    <div className={[
+                      "mb-4 border-b pb-4",
+                      isDark ? "border-white/10" : "border-black/10",
+                    ].join(" ")}>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <h3 className="text-xl font-semibold text-white">{currentThread.customer_name || "Customer"}</h3>
-                          <p className="text-sm text-zinc-400">
+                          <h3 className={[
+                            "text-xl font-semibold",
+                            isDark ? "text-white" : "text-zinc-900",
+                          ].join(" ")}>{currentThread.customer_name || "Customer"}</h3>
+                          <p className={[
+                            "text-sm",
+                            isDark ? "text-zinc-400" : "text-zinc-600",
+                          ].join(" ")}>
                             {currentThread.phone || "No phone"} · {currentThread.email || "No email"}
                           </p>
                         </div>
-                        <span className="inline-flex w-fit rounded-full border border-red-300/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-red-100">
+                        <span className={[
+                          "inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]",
+                          isDark
+                            ? "border-red-300/30 bg-red-500/10 text-red-100"
+                            : "border-red-300 bg-red-100 text-red-700",
+                        ].join(" ")}>
                           {currentThread.status || "waiting_admin"}
                         </span>
                       </div>
@@ -381,9 +460,15 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                   ) : null
                 })()}
 
-                <div className="space-y-3 rounded-xl border border-white/10 bg-[#121317] p-3">
+                <div className={[
+                  "space-y-3 rounded-xl border p-3",
+                  isDark ? "border-white/10 bg-[#121317]" : "border-black/10 bg-zinc-100",
+                ].join(" ")}>
                   {chatMessages.length === 0 ? (
-                    <p className="text-sm text-zinc-300">No messages in this conversation yet.</p>
+                    <p className={[
+                      "text-sm",
+                      isDark ? "text-zinc-300" : "text-zinc-600",
+                    ].join(" ")}>No messages in this conversation yet.</p>
                   ) : (
                     chatMessages.map((msg) => (
                       <div
@@ -391,8 +476,12 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                         className={[
                           "group relative max-w-[85%] rounded-2xl border px-3 py-2 text-sm leading-6",
                           msg.sender === "admin"
-                            ? "ml-auto border-red-400/30 bg-[#2a1719] text-red-50"
-                            : "border-white/10 bg-[#1b1d22] text-zinc-100",
+                            ? isDark
+                              ? "ml-auto border-red-400/30 bg-[#2a1719] text-red-50"
+                              : "ml-auto border-red-200 bg-red-50 text-red-800"
+                            : isDark
+                              ? "border-white/10 bg-[#1b1d22] text-zinc-100"
+                              : "border-black/10 bg-white text-zinc-800",
                         ].join(" ")}
                       >
                         <button
@@ -403,11 +492,17 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                         >
                           Delete
                         </button>
-                        <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-zinc-400">
+                        <div className={[
+                          "mb-1 text-[10px] uppercase tracking-[0.12em]",
+                          isDark ? "text-zinc-400" : "text-zinc-500",
+                        ].join(" ")}>
                           {msg.sender === "admin" ? "Admin" : msg.sender_name || "Customer"}
                         </div>
                         <div>{msg.content}</div>
-                        <div className="mt-1 text-right text-[10px] text-zinc-400">
+                        <div className={[
+                          "mt-1 text-right text-[10px]",
+                          isDark ? "text-zinc-400" : "text-zinc-500",
+                        ].join(" ")}>
                           {formatDateTime(msg.created_at)}
                         </div>
                       </div>
@@ -421,7 +516,12 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                     onChange={(event) => setChatReply(event.target.value)}
                     rows={3}
                     placeholder="Type your reply to the customer..."
-                    className="w-full resize-none rounded-xl border border-white/10 bg-[#0f1014] px-3 py-3 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-red-400/60 focus:ring-2 focus:ring-red-500/20"
+                    className={[
+                      "w-full resize-none rounded-xl border px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-red-500/20",
+                      isDark
+                        ? "border-white/10 bg-[#0f1014] text-white placeholder:text-zinc-500 focus:border-red-400/60"
+                        : "border-black/10 bg-white text-zinc-900 placeholder:text-zinc-400 focus:border-red-300",
+                    ].join(" ")}
                   />
                 </div>
 
