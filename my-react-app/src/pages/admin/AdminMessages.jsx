@@ -190,6 +190,37 @@ export default function AdminMessages({ onLiveChatCountChange }) {
     }
   }
 
+  const deleteChatThread = async (threadId) => {
+    if (!threadId) return
+
+    const { error: messageError } = await supabase
+      .from("admin_chat_messages")
+      .delete()
+      .eq("thread_id", threadId)
+
+    if (messageError) {
+      console.error("Error deleting admin chat thread messages:", messageError)
+      return
+    }
+
+    const { error: threadError } = await supabase
+      .from("admin_chat_threads")
+      .delete()
+      .eq("id", threadId)
+
+    if (threadError) {
+      console.error("Error deleting admin chat thread:", threadError)
+      return
+    }
+
+    if (selectedThreadId === threadId) {
+      setSelectedThreadId("")
+      setChatMessages([])
+    }
+
+    await loadChatThreads()
+  }
+
   const formatDateTime = (iso) => {
     if (!iso) return ""
     const d = new Date(iso)
@@ -270,28 +301,56 @@ export default function AdminMessages({ onLiveChatCountChange }) {
               <p className="mt-4 text-sm text-zinc-300">No live chat sessions yet.</p>
             ) : (
               <div className="mt-4 space-y-2">
-                {chatThreads.map((thread) => (
-                  <button
-                    key={thread.id}
-                    type="button"
-                    onClick={() => setSelectedThreadId(thread.id)}
-                    className={[
-                      "w-full rounded-xl border p-3 text-left transition",
-                      selectedThreadId === thread.id
-                        ? "border-red-400/40 bg-red-500/10"
-                        : "border-white/10 bg-white/5 hover:bg-white/10",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold text-white">{thread.customer_name || "Customer"}</span>
-                      <span className="rounded-full border border-emerald-300/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-emerald-200">
-                        {thread.status || "waiting_admin"}
-                      </span>
+                {chatThreads.map((thread) => {
+                  const isWaitingReply = (thread.status || "waiting_admin") === "waiting_admin"
+
+                  return (
+                    <div
+                      key={thread.id}
+                      className={[
+                        "relative w-full rounded-xl border p-3 text-left transition",
+                        isWaitingReply
+                          ? "border-red-400/40 bg-red-500/10 shadow-[0_0_0_1px_rgba(248,113,113,0.12)]"
+                          : "border-white/10 bg-white/5 hover:bg-white/10",
+                        selectedThreadId === thread.id ? "ring-1 ring-red-400/50" : "",
+                      ].join(" ")}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedThreadId(thread.id)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-semibold text-white">{thread.customer_name || "Customer"}</span>
+                          <span
+                            className={[
+                              "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em]",
+                              isWaitingReply
+                                ? "border-red-300/30 bg-red-500/20 text-red-100"
+                                : "border-emerald-300/30 bg-emerald-500/20 text-emerald-200",
+                            ].join(" ")}
+                          >
+                            {thread.status || "waiting_admin"}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-zinc-400">{thread.phone || "No phone"}</p>
+                        <p className="mt-1 text-xs text-zinc-400">{formatDateTime(thread.updated_at)}</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void deleteChatThread(thread.id)
+                        }}
+                        className="absolute right-2 top-2 rounded-full border border-red-400/30 bg-zinc-900/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-red-200 transition hover:bg-red-500/10"
+                        aria-label="Delete thread"
+                      >
+                        Delete
+                      </button>
                     </div>
-                    <p className="mt-2 text-xs text-zinc-400">{thread.phone || "No phone"}</p>
-                    <p className="mt-1 text-xs text-zinc-400">{formatDateTime(thread.updated_at)}</p>
-                  </button>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
