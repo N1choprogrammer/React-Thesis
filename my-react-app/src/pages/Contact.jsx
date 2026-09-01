@@ -21,6 +21,8 @@ export default function Contact() {
   const [liveChatError, setLiveChatError] = useState("")
   const [liveChatThread, setLiveChatThread] = useState(null)
   const [threadStatus, setThreadStatus] = useState("idle")
+  const [customerReply, setCustomerReply] = useState("")
+  const [sendingCustomerReply, setSendingCustomerReply] = useState(false)
 
   const statusText = {
     idle: "No active live chat thread yet.",
@@ -142,7 +144,7 @@ export default function Contact() {
 
     if (threadError) {
       console.error("Error creating live chat thread:", threadError)
-      setLiveChatError("Live chat is temporarily unavailable. Please use the message form below.")
+      setLiveChatError("Live chat is temporarily unavailable. Please try again in a moment.")
       return
     }
 
@@ -168,6 +170,52 @@ export default function Contact() {
     setThreadStatus("waiting_admin")
     setLiveChatSent(true)
     setLiveChatForm({ name: "", phone: "", email: "", message: "" })
+  }
+
+  const handleCustomerReplySubmit = async (e) => {
+    e.preventDefault()
+
+    if (!liveChatThread?.id || !customerReply.trim()) {
+      return
+    }
+
+    setSendingCustomerReply(true)
+    setLiveChatError("")
+
+    const { error: messageError } = await supabase.from("admin_chat_messages").insert([
+      {
+        thread_id: liveChatThread.id,
+        sender: "customer",
+        sender_name: liveChatThread.customer_name || liveChatForm.name || "Customer",
+        content: customerReply.trim(),
+      },
+    ])
+
+    if (messageError) {
+      console.error("Error sending customer reply:", messageError)
+      setLiveChatError("Your reply could not be sent. Please try again.")
+      setSendingCustomerReply(false)
+      return
+    }
+
+    const { error: threadError } = await supabase
+      .from("admin_chat_threads")
+      .update({
+        status: "waiting_admin",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", liveChatThread.id)
+
+    if (threadError) {
+      console.error("Error reopening live chat thread:", threadError)
+      setLiveChatError("Your reply was sent, but the thread status could not be reopened. Please try again.")
+    } else {
+      setThreadStatus("waiting_admin")
+      setLiveChatSent(true)
+    }
+
+    setCustomerReply("")
+    setSendingCustomerReply(false)
   }
 
   const inputClass = [
@@ -263,162 +311,96 @@ export default function Contact() {
           </div>
 
           <div className={["rounded-3xl p-5 sm:p-6", isDark ? "border border-white/10 bg-zinc-950/85 shadow-[0_20px_60px_rgba(0,0,0,0.45)]" : "border border-black/10 bg-white/90 shadow-[0_14px_40px_rgba(17,24,39,0.10)]"].join(" ")}>
-            <h2 className={["text-xl font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Send us a message</h2>
+            <h2 className={["text-xl font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>Live chat</h2>
 
-            {submitted ? (
-              <div className={["mt-4 rounded-2xl border p-4 text-sm", isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800"].join(" ")}>
-                Thank you for reaching out. Your message has been recorded for demo purposes. In a
-                live system, this would be sent to the SPEEGO team.
+            {liveChatSent ? (
+              <div className="mt-4 space-y-4">
+                <div className={[
+                  "rounded-xl border p-3 text-sm",
+                  isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800",
+                ].join(" ")}>
+                  {statusText[threadStatus] || statusText.waiting_admin}
+                </div>
+
+                {threadStatus === "waiting_customer" && (
+                  <form onSubmit={handleCustomerReplySubmit} className="space-y-3">
+                    <textarea
+                      value={customerReply}
+                      onChange={(event) => setCustomerReply(event.target.value)}
+                      rows={4}
+                      placeholder="Reply to the admin..."
+                      className={`${inputClass} resize-y`}
+                    />
+
+                    {liveChatError && (
+                      <div className={[
+                        "rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200",
+                      ].join(" ")}>{liveChatError}</div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={sendingCustomerReply || !customerReply.trim()}
+                      className="w-full rounded-xl border border-red-500 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    >
+                      {sendingCustomerReply ? "Sending..." : "Reply to admin"}
+                    </button>
+                  </form>
+                )}
+
+                {threadStatus === "waiting_admin" && (
+                  <p className={["text-sm leading-6", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
+                    Our team is reviewing your message. We will reply soon.
+                  </p>
+                )}
               </div>
             ) : (
-              <p className={["mt-3 text-sm leading-6", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
-                Fill out the form and we will get back to you as soon as possible.
-              </p>
-            )}
+              <form onSubmit={handleLiveChatSubmit} className="mt-4 space-y-3">
+                <input
+                  name="name"
+                  value={liveChatForm.name}
+                  onChange={handleLiveChatChange}
+                  placeholder="Full name"
+                  className={inputClass}
+                />
+                <input
+                  name="phone"
+                  value={liveChatForm.phone}
+                  onChange={handleLiveChatChange}
+                  placeholder="Contact number"
+                  className={inputClass}
+                />
+                <input
+                  name="email"
+                  type="email"
+                  value={liveChatForm.email}
+                  onChange={handleLiveChatChange}
+                  placeholder="Email (optional)"
+                  className={inputClass}
+                />
+                <textarea
+                  name="message"
+                  rows={4}
+                  value={liveChatForm.message}
+                  onChange={handleLiveChatChange}
+                  placeholder="Write your quick question here..."
+                  className={`${inputClass} resize-y`}
+                />
 
-            {!submitted && (
-              <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="name" className={["block text-sm font-medium", isDark ? "text-zinc-200" : "text-zinc-800"].join(" ")}>
-                    Full name
-                  </label>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    required
-                    value={form.name}
-                    onChange={handleChange}
-                    placeholder="Juan Dela Cruz"
-                    className={inputClass}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="phone" className={["block text-sm font-medium", isDark ? "text-zinc-200" : "text-zinc-800"].join(" ")}>
-                    Contact number
-                  </label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="text"
-                    required
-                    value={form.phone}
-                    onChange={handleChange}
-                    placeholder="09XX-XXX-XXXX"
-                    className={inputClass}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="email" className={["block text-sm font-medium", isDark ? "text-zinc-200" : "text-zinc-800"].join(" ")}>
-                    Email (optional)
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="you@example.com"
-                    className={inputClass}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="message" className={["block text-sm font-medium", isDark ? "text-zinc-200" : "text-zinc-800"].join(" ")}>
-                    Message
-                  </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    rows={5}
-                    required
-                    value={form.message}
-                    onChange={handleChange}
-                    placeholder="How can we help you?"
-                    className={`${inputClass} resize-y`}
-                  />
-                </div>
+                {liveChatError && (
+                  <div className={[
+                    "rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200",
+                  ].join(" ")}>{liveChatError}</div>
+                )}
 
                 <button
                   type="submit"
                   className="w-full rounded-xl border border-red-500 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto"
                 >
-                  Send message
+                  Start live chat
                 </button>
               </form>
             )}
-
-            <div className={[
-              "mt-6 rounded-2xl border p-4",
-              isDark ? "border-white/10 bg-white/5" : "border-black/10 bg-zinc-50",
-            ].join(" ")}>
-              <h3 className={["text-base font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
-                Need a quicker reply?
-              </h3>
-              <p className={[
-                "mt-2 text-sm leading-6",
-                isDark ? "text-zinc-300" : "text-zinc-600",
-              ].join(" ")}>
-                Start a live admin chat for quick questions while we stay connected in real time.
-              </p>
-
-              {liveChatSent ? (
-                <div className={[
-                  "mt-4 rounded-xl border p-3 text-sm",
-                  isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800",
-                ].join(" ")}>
-                  {statusText[threadStatus] || statusText.waiting_admin}
-                </div>
-              ) : (
-                <form onSubmit={handleLiveChatSubmit} className="mt-4 space-y-3">
-                  <input
-                    name="name"
-                    value={liveChatForm.name}
-                    onChange={handleLiveChatChange}
-                    placeholder="Full name"
-                    className={inputClass}
-                  />
-                  <input
-                    name="phone"
-                    value={liveChatForm.phone}
-                    onChange={handleLiveChatChange}
-                    placeholder="Contact number"
-                    className={inputClass}
-                  />
-                  <input
-                    name="email"
-                    type="email"
-                    value={liveChatForm.email}
-                    onChange={handleLiveChatChange}
-                    placeholder="Email (optional)"
-                    className={inputClass}
-                  />
-                  <textarea
-                    name="message"
-                    rows={3}
-                    value={liveChatForm.message}
-                    onChange={handleLiveChatChange}
-                    placeholder="Write your quick question here..."
-                    className={`${inputClass} resize-y`}
-                  />
-
-                  {liveChatError && (
-                    <div className={[
-                      "rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200",
-                    ].join(" ")}>{liveChatError}</div>
-                  )}
-
-                  <button
-                    type="submit"
-                    className="w-full rounded-xl border border-red-500 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto"
-                  >
-                    Start live chat
-                  </button>
-                </form>
-              )}
-            </div>
           </div>
         </section>
 
