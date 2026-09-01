@@ -13,7 +13,7 @@ import {
 } from "../chatbot/productResponder"
 import { getOrderStatusReply } from "../chatbot/orderResponder"
 import { supabase } from "../services/supabaseClient"
-import { requireCustomerProfile } from "../utils/requireCustomerProfile"
+import { getCustomerProfileSnapshot, requireCustomerProfile } from "../utils/requireCustomerProfile"
 
 const EXTRA_MONTH_INTEREST_RATE = 0.0125
 const MIN_CUSTOM_PAYMENT_MONTHS = 13
@@ -1534,10 +1534,10 @@ What's most important to you?`,
         return
       }
 
-      const profileGate = await requireCustomerProfile()
+      const profileGate = await getCustomerProfileSnapshot()
       const profileName = profileGate.ok ? profileGate.profile.fullName : "Customer"
       const profilePhone = profileGate.ok ? profileGate.profile.phone : "Not provided"
-      const profileEmail = profileGate.ok ? profileGate.user?.email || null : null
+      const profileEmail = profileGate.ok ? profileGate.profile.email || profileGate.user?.email || null : null
 
       const { data: thread, error: threadError } = await supabase
         .from("admin_chat_threads")

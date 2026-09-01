@@ -108,6 +108,20 @@ export default function AIChatSupportPage() {
       return
     }
 
+    const { error: statusError } = await supabase
+      .from("admin_chat_threads")
+      .update({
+        status: "waiting_admin",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", threadId)
+
+    if (statusError) {
+      console.error("Error reopening AI live chat thread:", statusError)
+    } else {
+      setStatus("waiting_admin")
+    }
+
     setReply("")
     setSending(false)
   }
