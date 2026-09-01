@@ -2399,6 +2399,23 @@ if (cartRequest) {
   setSending(false)
   return
 }
+const immediateHumanSupportRequest = requiresHumanSupport(userMsg)
+const wantsManagerChat = /\b(manager|director|supervisor)\b/i.test(String(userMsg || ""))
+const managerActionLabel = wantsManagerChat ? "Live chat with manager" : "Live chat with admin"
+
+if (immediateHumanSupportRequest) {
+  setMessages((prev) => [
+    ...prev,
+    {
+      from: "bot",
+      text: "I cannot answer that question because the information is not specified. Please contact SpeeGo E-bikes at ianneclauren969@gmail.com or 0919-949-1986 for assistance.",
+      actions: [{ label: managerActionLabel, onClick: () => startLiveChatWithAdmin(userMsg || "") }],
+    },
+  ])
+  setSending(false)
+  return
+}
+
 const shouldUseGenerativeAI =
   !cartRequest &&
   !initialOrderPrompt &&
