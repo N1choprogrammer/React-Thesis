@@ -348,6 +348,20 @@ function requiresHumanSupport(message) {
     "please connect me to support",
     "chat with admin",
     "chat with manager",
+    "talk to the manager",
+    "talk to a manager",
+    "talk to the admin",
+    "talk to a person",
+    "i want to talk to the manager",
+    "i want to talk to the admin",
+    "can i talk to the manager",
+    "can i talk to the admin",
+    "i need to talk to the manager",
+    "i need to talk to the admin",
+    "manager please",
+    "manager",
+    "supervisor",
+    "team lead",
   ]
 
   return supportSignals.some((signal) => msg.includes(signal))
