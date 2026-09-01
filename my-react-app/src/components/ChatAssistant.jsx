@@ -3256,32 +3256,36 @@ Would you like to add it to your cart?`,
     const text = String(msg?.text || "").replace(/^[ \t]+/gm, "")
     const links = Array.isArray(msg?.links) ? msg.links : []
     const actions = Array.isArray(msg?.actions) ? msg.actions : []
-    const standaloneLinks = links.filter((link) => {
-      const label = String(link?.label || "")
-      return label && !text.includes(label)
-    })
 
     const renderStandaloneLinks = () =>
-      standaloneLinks.length > 0 ? (
+      links.filter((link) => {
+        const label = String(link?.label || "")
+        return label && !text.includes(label)
+      }).length > 0 ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
-          {standaloneLinks.map((link) => (
-            <button
-              key={`${link.href}-${link.label}`}
-              type="button"
-              onClick={() => navigate(link.href)}
-              style={{
-                border: "1px solid var(--chat-chip-border)",
-                background: "var(--chat-chip-bg)",
-                color: "var(--chat-chip-text)",
-                borderRadius: "999px",
-                padding: "0.38rem 0.7rem",
-                fontSize: "12px",
-                cursor: "pointer",
-              }}
-            >
-              {link.label}
-            </button>
-          ))}
+          {links
+            .filter((link) => {
+              const label = String(link?.label || "")
+              return label && !text.includes(label)
+            })
+            .map((link) => (
+              <button
+                key={`${link.href}-${link.label}`}
+                type="button"
+                onClick={() => navigate(link.href)}
+                style={{
+                  border: "1px solid var(--chat-chip-border)",
+                  background: "var(--chat-chip-bg)",
+                  color: "var(--chat-chip-text)",
+                  borderRadius: "999px",
+                  padding: "0.38rem 0.7rem",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                }}
+              >
+                {link.label}
+              </button>
+            ))}
         </div>
       ) : null
 
