@@ -21,6 +21,7 @@ export default function Contact() {
   const [liveChatError, setLiveChatError] = useState("")
   const [liveChatThread, setLiveChatThread] = useState(null)
   const [threadStatus, setThreadStatus] = useState("idle")
+  const [threadMessages, setThreadMessages] = useState([])
   const [customerReply, setCustomerReply] = useState("")
   const [sendingCustomerReply, setSendingCustomerReply] = useState(false)
 
@@ -62,6 +63,42 @@ export default function Contact() {
     setSubmitted(true)
   }
 
+  const formatChatTime = (iso) => {
+    if (!iso) return ""
+
+    const date = new Date(iso)
+    return date.toLocaleString([], {
+      month: "numeric",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    })
+  }
+
+  const loadThreadMessages = async (threadId) => {
+    if (!threadId) {
+      setThreadMessages([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from("admin_chat_messages")
+      .select("*")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true })
+
+    if (error) {
+      console.error("Error loading admin chat messages for customer thread:", error)
+      setThreadMessages([])
+      return
+    }
+
+    setThreadMessages(data || [])
+  }
+
   useEffect(() => {
     const savedThreadId = localStorage.getItem("speego_live_chat_thread_id")
     if (!savedThreadId) return
@@ -77,6 +114,7 @@ export default function Contact() {
         setLiveChatThread(data)
         setThreadStatus(data.status || "waiting_admin")
         setLiveChatSent(true)
+        await loadThreadMessages(data.id)
       }
     }
 
@@ -84,7 +122,12 @@ export default function Contact() {
   }, [])
 
   useEffect(() => {
-    if (!liveChatThread?.id) return undefined
+    if (!liveChatThread?.id) {
+      setThreadMessages([])
+      return undefined
+    }
+
+    loadThreadMessages(liveChatThread.id)
 
     const channel = supabase.channel(`customer-thread-${liveChatThread.id}`)
 
@@ -112,6 +155,8 @@ export default function Contact() {
           setLiveChatThread(data)
           setThreadStatus(data.status || "waiting_admin")
         }
+
+        await loadThreadMessages(liveChatThread.id)
       },
     )
 
@@ -165,6 +210,16 @@ export default function Contact() {
       return
     }
 
+    const optimisticMessage = {
+      id: `${thread.id}-customer-${Date.now()}`,
+      thread_id: thread.id,
+      sender: "customer",
+      sender_name: liveChatForm.name,
+      content: liveChatForm.message,
+      created_at: new Date().toISOString(),
+    }
+
+    setThreadMessages((prev) => [...prev, optimisticMessage])
     localStorage.setItem("speego_live_chat_thread_id", thread.id)
     setLiveChatThread(thread)
     setThreadStatus("waiting_admin")
@@ -182,6 +237,17 @@ export default function Contact() {
     setSendingCustomerReply(true)
     setLiveChatError("")
 
+    const optimisticMessage = {
+      id: `${liveChatThread.id}-reply-${Date.now()}`,
+      thread_id: liveChatThread.id,
+      sender: "customer",
+      sender_name: liveChatThread.customer_name || liveChatForm.name || "Customer",
+      content: customerReply.trim(),
+      created_at: new Date().toISOString(),
+    }
+
+    setThreadMessages((prev) => [...prev, optimisticMessage])
+
     const { error: messageError } = await supabase.from("admin_chat_messages").insert([
       {
         thread_id: liveChatThread.id,
@@ -194,6 +260,7 @@ export default function Contact() {
     if (messageError) {
       console.error("Error sending customer reply:", messageError)
       setLiveChatError("Your reply could not be sent. Please try again.")
+      setThreadMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id))
       setSendingCustomerReply(false)
       return
     }
@@ -320,6 +387,46 @@ export default function Contact() {
                   isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800",
                 ].join(" ")}>
                   {statusText[threadStatus] || statusText.waiting_admin}
+                </div>
+
+                <div className={[
+                  "max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border p-3",
+                  isDark ? "border-white/10 bg-black/20" : "border-black/10 bg-zinc-100",
+                ].join(" ")}>
+                  {threadMessages.length === 0 ? (
+                    <p className={["text-sm", isDark ? "text-zinc-300" : "text-zinc-600"].join(" ")}>
+                      No messages yet. Your chat will appear here.
+                    </p>
+                  ) : (
+                    threadMessages.map((msg) => {
+                      const isCustomer = msg.sender === "customer"
+
+                      return (
+                        <div key={msg.id} className={isCustomer ? "flex justify-end" : "flex justify-start"}>
+                          <div
+                            className={[
+                              "max-w-[85%] rounded-2xl border px-3 py-2",
+                              isCustomer
+                                ? isDark
+                                  ? "border-red-400/30 bg-red-500/10 text-red-50"
+                                  : "border-red-300 bg-red-50 text-red-900"
+                                : isDark
+                                  ? "border-white/10 bg-white/5 text-zinc-100"
+                                  : "border-black/10 bg-white text-zinc-900",
+                            ].join(" ")}
+                          >
+                            <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-zinc-400">
+                              {isCustomer ? liveChatThread?.customer_name || "You" : "Admin"}
+                            </div>
+                            <div className="text-sm leading-6">{msg.content}</div>
+                            <div className="mt-1 text-right text-[10px] text-zinc-400">
+                              {formatChatTime(msg.created_at)}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
                 </div>
 
                 {threadStatus === "waiting_customer" && (
