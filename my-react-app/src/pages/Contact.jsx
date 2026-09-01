@@ -11,10 +11,23 @@ export default function Contact() {
     message: "",
   })
   const [submitted, setSubmitted] = useState(false)
+  const [liveChatForm, setLiveChatForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    message: "",
+  })
+  const [liveChatSent, setLiveChatSent] = useState(false)
+  const [liveChatError, setLiveChatError] = useState("")
 
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleLiveChatChange = (e) => {
+    const { name, value } = e.target
+    setLiveChatForm((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e) => {
@@ -36,6 +49,56 @@ export default function Contact() {
     }
 
     setSubmitted(true)
+  }
+
+  const handleLiveChatSubmit = async (e) => {
+    e.preventDefault()
+    setLiveChatError("")
+
+    if (!liveChatForm.name || !liveChatForm.phone || !liveChatForm.message) {
+      setLiveChatError("Please add your name, contact number, and a short message.")
+      return
+    }
+
+    const threadPayload = {
+      customer_name: liveChatForm.name,
+      phone: liveChatForm.phone,
+      email: liveChatForm.email || null,
+      status: "open",
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data: thread, error: threadError } = await supabase
+      .from("admin_chat_threads")
+      .insert([threadPayload])
+      .select()
+      .single()
+
+    if (threadError) {
+      console.error("Error creating live chat thread:", threadError)
+      setLiveChatError("Live chat is temporarily unavailable. Please use the message form below.")
+      return
+    }
+
+    const { error: messageError } = await supabase
+      .from("admin_chat_messages")
+      .insert([
+        {
+          thread_id: thread.id,
+          sender: "customer",
+          sender_name: liveChatForm.name,
+          content: liveChatForm.message,
+        },
+      ])
+
+    if (messageError) {
+      console.error("Error sending live chat message:", messageError)
+      setLiveChatError("Your live chat request was created, but the first message did not send. Please try again.")
+      return
+    }
+
+    setLiveChatSent(true)
+    setLiveChatForm({ name: "", phone: "", email: "", message: "" })
   }
 
   const inputClass = [
@@ -217,6 +280,76 @@ export default function Contact() {
                 </button>
               </form>
             )}
+
+            <div className={[
+              "mt-6 rounded-2xl border p-4",
+              isDark ? "border-white/10 bg-white/5" : "border-black/10 bg-zinc-50",
+            ].join(" ")}>
+              <h3 className={["text-base font-semibold", isDark ? "text-white" : "text-zinc-900"].join(" ")}>
+                Need a quicker reply?
+              </h3>
+              <p className={[
+                "mt-2 text-sm leading-6",
+                isDark ? "text-zinc-300" : "text-zinc-600",
+              ].join(" ")}>
+                Start a live admin chat for quick questions while we stay connected in real time.
+              </p>
+
+              {liveChatSent ? (
+                <div className={[
+                  "mt-4 rounded-xl border p-3 text-sm",
+                  isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800",
+                ].join(" ")}>
+                  Your live chat request has been sent to the admin team. We will respond as soon as we are online.
+                </div>
+              ) : (
+                <form onSubmit={handleLiveChatSubmit} className="mt-4 space-y-3">
+                  <input
+                    name="name"
+                    value={liveChatForm.name}
+                    onChange={handleLiveChatChange}
+                    placeholder="Full name"
+                    className={inputClass}
+                  />
+                  <input
+                    name="phone"
+                    value={liveChatForm.phone}
+                    onChange={handleLiveChatChange}
+                    placeholder="Contact number"
+                    className={inputClass}
+                  />
+                  <input
+                    name="email"
+                    type="email"
+                    value={liveChatForm.email}
+                    onChange={handleLiveChatChange}
+                    placeholder="Email (optional)"
+                    className={inputClass}
+                  />
+                  <textarea
+                    name="message"
+                    rows={3}
+                    value={liveChatForm.message}
+                    onChange={handleLiveChatChange}
+                    placeholder="Write your quick question here..."
+                    className={`${inputClass} resize-y`}
+                  />
+
+                  {liveChatError && (
+                    <div className={[
+                      "rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200",
+                    ].join(" ")}>{liveChatError}</div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl border border-red-500 bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-500 sm:w-auto"
+                  >
+                    Start live chat
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </section>
 
