@@ -369,7 +369,7 @@ export default function AdminMessages({ onLiveChatCountChange }) {
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/85 p-4 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
+          <div className="rounded-2xl border border-white/10 bg-[#0d0d10] p-4 shadow-[0_12px_32px_rgba(0,0,0,0.35)]">
             {!selectedThreadId ? (
               <div className="flex h-full min-h-[320px] items-center justify-center text-sm text-zinc-300">
                 Select a customer thread to continue the live conversation.
@@ -395,7 +395,7 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                   ) : null
                 })()}
 
-                <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                <div className="space-y-3 rounded-xl border border-white/10 bg-[#121317] p-3">
                   {chatMessages.length === 0 ? (
                     <p className="text-sm text-zinc-300">No messages in this conversation yet.</p>
                   ) : (
@@ -405,8 +405,8 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                         className={[
                           "group relative max-w-[85%] rounded-2xl border px-3 py-2 text-sm leading-6",
                           msg.sender === "admin"
-                            ? "ml-auto border-red-400/30 bg-red-500/10 text-red-50"
-                            : "border-white/10 bg-white/5 text-zinc-100",
+                            ? "ml-auto border-red-400/30 bg-[#2a1719] text-red-50"
+                            : "border-white/10 bg-[#1b1d22] text-zinc-100",
                         ].join(" ")}
                       >
                         <button
@@ -435,7 +435,7 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                     onChange={(event) => setChatReply(event.target.value)}
                     rows={3}
                     placeholder="Type your reply to the customer..."
-                    className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-red-400/60 focus:ring-2 focus:ring-red-500/20"
+                    className="w-full resize-none rounded-xl border border-white/10 bg-[#0f1014] px-3 py-3 text-sm text-white placeholder:text-zinc-500 outline-none focus:border-red-400/60 focus:ring-2 focus:ring-red-500/20"
                   />
                 </div>
 
