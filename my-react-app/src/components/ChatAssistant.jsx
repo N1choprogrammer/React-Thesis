@@ -3431,27 +3431,6 @@ Would you like to add it to your cart?`,
             )}
           </div>
 
-          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-            <button
-              type="button"
-              onClick={() => startLiveChatWithAdmin("")}
-              disabled={sending}
-              style={{
-                width: "100%",
-                border: "1px solid rgba(248,113,113,0.45)",
-                background: "rgba(239,68,68,0.12)",
-                color: "var(--chat-chip-text)",
-                borderRadius: "999px",
-                padding: "0.6rem 0.8rem",
-                fontSize: "12px",
-                fontWeight: 700,
-                cursor: sending ? "not-allowed" : "pointer",
-              }}
-            >
-              Live chat with admin
-            </button>
-          </div>
-
           <form className="chat-assistant-input-row" onSubmit={handleSubmit}>
             <input
               type="text"
