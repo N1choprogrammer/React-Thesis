@@ -1512,15 +1512,11 @@ What's most important to you?`,
     }, [liveChatThreadId])
 
     const startLiveChatWithAdmin = async (initialPrompt = "Customer requested live support from SpeeGo AI.") => {
-      if (liveChatThreadId) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            from: "bot",
-            text: "A live admin is already responding in this chat. Please wait for their next message here.\nFor direct contact, call 0919-949-1986 or email ianneclauren969@gmail.com.",
-            actions: [{ label: "Live chat with admin", onClick: () => startLiveChatWithAdmin(initialPrompt) }],
-          },
-        ])
+      const existingThreadId = liveChatThreadId || localStorage.getItem("speego_ai_live_chat_thread_id")
+
+      if (existingThreadId) {
+        setLiveChatThreadId(existingThreadId)
+        navigate("/speego-ai-live-chat")
         return
       }
 
@@ -1568,6 +1564,7 @@ What's most important to you?`,
       setLiveChatStatus("waiting_admin")
       localStorage.setItem("speego_ai_live_chat_thread_id", thread.id)
       await loadLiveChatMessages(thread.id)
+      navigate("/speego-ai-live-chat")
     }
 
     const handleToggle = () => {
@@ -3207,7 +3204,14 @@ Would you like to add it to your cart?`,
 
       if (shouldEscalateToAdmin) {
         const liveChatPrompt = userMsg || "Customer requested live support from SpeeGo AI."
-        await startLiveChatWithAdmin(liveChatPrompt)
+        setMessages((prev) => [
+          ...prev,
+          {
+            from: "bot",
+            text: "I cannot answer that question because the information is not specified. Please contact SpeeGo E-bikes at ianneclauren969@gmail.com or 0919-949-1986 for assistance.",
+            actions: [{ label: "Live chat with admin", onClick: () => startLiveChatWithAdmin(liveChatPrompt) }],
+          },
+        ])
         setSending(false)
         return
       }

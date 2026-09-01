@@ -13,6 +13,7 @@ import ResetPassword from "./pages/ResetPassword"
 import AdminLayout from "./pages/admin/AdminLayout"
 import OrderConfirmation from "./pages/OrderConfirmation"
 import ChatAssistant from "./components/ChatAssistant"
+import AIChatSupportPage from "./pages/AIChatSupportPage"
 import MyOrders from "./pages/MyOrders"
 import Profile from "./pages/Profile"
 import { useTheme } from "./context/ThemeContext"
@@ -54,6 +55,7 @@ function Layout() {
   // hide customer navbar/chat on auth and admin routes
   const authPaths = ["/login", "/forgot-password", "/reset-password"]
   const hideNav = authPaths.includes(location.pathname) || location.pathname.startsWith("/admin")
+  const hideChatAssistant = location.pathname === "/speego-ai-live-chat"
 
   return (
     <div
@@ -85,6 +87,9 @@ function Layout() {
           <Route path="/order-confirmation" element={<OrderConfirmation />} />
           <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
 
+          {/* SpeeGo AI live support */}
+          <Route path="/speego-ai-live-chat" element={<AIChatSupportPage />} />
+
           {/* Admin (protected) */}
           <Route
             path="/admin/*"
@@ -96,8 +101,8 @@ function Layout() {
           />
         </Routes>
       </main>
-       {/* SpeeGO AI assistant - visible on all pages except login */}
-      {!hideNav && <ChatAssistant />}
+       {/* SpeeGO AI assistant - visible on all pages except login and support page */}
+      {!hideNav && !hideChatAssistant && <ChatAssistant />}
     </div>
   )
 }
