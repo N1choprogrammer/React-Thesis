@@ -1568,15 +1568,6 @@ What's most important to you?`,
       setLiveChatStatus("waiting_admin")
       localStorage.setItem("speego_ai_live_chat_thread_id", thread.id)
       await loadLiveChatMessages(thread.id)
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          from: "bot",
-          text: "I can’t answer that accurately yet. Please use live chat with our admin or contact us directly:\nPhone: 0919-949-1986\nEmail: ianneclauren969@gmail.com",
-          actions: [{ label: "Live chat with admin", onClick: () => startLiveChatWithAdmin(initialPrompt) }],
-        },
-      ])
     }
 
     const handleToggle = () => {
