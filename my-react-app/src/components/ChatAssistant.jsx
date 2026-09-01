@@ -13,7 +13,11 @@ import {
 } from "../chatbot/productResponder"
 import { getOrderStatusReply } from "../chatbot/orderResponder"
 import { supabase } from "../services/supabaseClient"
-import { getCustomerProfileSnapshot, requireCustomerProfile } from "../utils/requireCustomerProfile"
+import {
+  getCustomerProfileSnapshot,
+  getLiveChatThreadStorageKey,
+  requireCustomerProfile,
+} from "../utils/requireCustomerProfile"
 
 const EXTRA_MONTH_INTEREST_RATE = 0.0125
 const MIN_CUSTOM_PAYMENT_MONTHS = 13
@@ -1482,11 +1486,18 @@ What's most important to you?`,
     }
 
     useEffect(() => {
-      const savedThreadId = localStorage.getItem("speego_ai_live_chat_thread_id")
-      if (!savedThreadId) return
+      const loadSavedThreadForUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        const storageKey = getLiveChatThreadStorageKey(user?.id || null)
+        const savedThreadId = localStorage.getItem(storageKey)
 
-      setLiveChatThreadId(savedThreadId)
-      loadLiveChatMessages(savedThreadId)
+        if (!savedThreadId) return
+
+        setLiveChatThreadId(savedThreadId)
+        loadLiveChatMessages(savedThreadId)
+      }
+
+      void loadSavedThreadForUser()
     }, [])
 
     useEffect(() => {
@@ -1526,15 +1537,18 @@ What's most important to you?`,
     }, [liveChatThreadId])
 
     const startLiveChatWithAdmin = async (initialPrompt = "") => {
-      const existingThreadId = liveChatThreadId || localStorage.getItem("speego_ai_live_chat_thread_id")
+      const profileGate = await getCustomerProfileSnapshot()
+      const userId = profileGate.user?.id || null
+      const storageKey = getLiveChatThreadStorageKey(userId)
+      const existingThreadId = liveChatThreadId || localStorage.getItem(storageKey)
 
       if (existingThreadId) {
         setLiveChatThreadId(existingThreadId)
+        localStorage.setItem(storageKey, existingThreadId)
         navigate("/speego-ai-live-chat")
         return
       }
 
-      const profileGate = await getCustomerProfileSnapshot()
       const profileName = profileGate.ok ? profileGate.profile.fullName : "Customer"
       const profilePhone = profileGate.ok ? profileGate.profile.phone : "Not provided"
       const profileEmail = profileGate.ok ? profileGate.profile.email || profileGate.user?.email || null : null
@@ -1586,7 +1600,9 @@ What's most important to you?`,
 
       setLiveChatThreadId(thread.id)
       setLiveChatStatus("waiting_admin")
-      localStorage.setItem("speego_ai_live_chat_thread_id", thread.id)
+      localStorage.setItem(storageKey, thread.id)
+      const legacyKeys = ["speego_ai_live_chat_thread_id", "speego_live_chat_thread_id"]
+      legacyKeys.forEach((key) => localStorage.removeItem(key))
       await loadLiveChatMessages(thread.id)
       navigate("/speego-ai-live-chat")
     }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { supabase } from "../services/supabaseClient"
+import { getLiveChatThreadStorageKey } from "../utils/requireCustomerProfile"
 
 export default function AIChatSupportPage() {
   const navigate = useNavigate()
-  const [threadId, setThreadId] = useState(() => localStorage.getItem("speego_ai_live_chat_thread_id") || "")
+  const [threadId, setThreadId] = useState("")
   const [messages, setMessages] = useState([])
   const [status, setStatus] = useState("waiting_admin")
   const [reply, setReply] = useState("")
@@ -33,16 +34,21 @@ export default function AIChatSupportPage() {
   }
 
   useEffect(() => {
-    if (!threadId) {
-      navigate("/")
-      return
-    }
+    const loadThreadFromCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const storageKey = getLiveChatThreadStorageKey(user?.id || null)
+      const savedThreadId = localStorage.getItem(storageKey) || ""
+      setThreadId(savedThreadId)
 
-    const loadThread = async () => {
+      if (!savedThreadId) {
+        navigate("/")
+        return
+      }
+
       const { data, error: threadError } = await supabase
         .from("admin_chat_threads")
         .select("*")
-        .eq("id", threadId)
+        .eq("id", savedThreadId)
         .maybeSingle()
 
       if (threadError) {
@@ -53,11 +59,11 @@ export default function AIChatSupportPage() {
         setStatus(data.status || "waiting_admin")
       }
 
-      await loadMessages(threadId)
+      await loadMessages(savedThreadId)
     }
 
-    void loadThread()
-  }, [threadId, navigate])
+    void loadThreadFromCurrentUser()
+  }, [navigate])
 
   useEffect(() => {
     if (!threadId) return undefined

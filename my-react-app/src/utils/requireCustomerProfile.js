@@ -1,5 +1,22 @@
 import { supabase } from "../services/supabaseClient"
 
+export function getLiveChatThreadStorageKey(userId = null) {
+  return userId ? `speego_ai_live_chat_thread_id:${userId}` : "speego_ai_live_chat_thread_id:guest"
+}
+
+export function clearLiveChatThreadStorageForUser(userId = null) {
+  const activeKey = getLiveChatThreadStorageKey(userId)
+  const legacyKeys = ["speego_ai_live_chat_thread_id", "speego_live_chat_thread_id"]
+
+  legacyKeys.forEach((key) => {
+    if (key !== activeKey) {
+      localStorage.removeItem(key)
+    }
+  })
+
+  localStorage.removeItem(activeKey)
+}
+
 export async function getCustomerProfileSnapshot() {
   const {
     data: { user },
