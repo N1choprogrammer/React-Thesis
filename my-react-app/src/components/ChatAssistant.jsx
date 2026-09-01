@@ -3214,12 +3214,15 @@ Would you like to add it to your cart?`,
 
       if (shouldEscalateToAdmin) {
         const liveChatPrompt = userMsg || ""
+        const wantsManagerChat = /\b(manager|director|supervisor)\b/i.test(String(userMsg || ""))
+        const actionLabel = wantsManagerChat ? "Live chat with manager" : "Live chat with admin"
+
         setMessages((prev) => [
           ...prev,
           {
             from: "bot",
             text: "I cannot answer that question because the information is not specified. Please contact SpeeGo E-bikes at ianneclauren969@gmail.com or 0919-949-1986 for assistance.",
-            actions: [{ label: "Live chat with admin", onClick: () => startLiveChatWithAdmin(liveChatPrompt) }],
+            actions: [{ label: actionLabel, onClick: () => startLiveChatWithAdmin(liveChatPrompt) }],
           },
         ])
         setSending(false)
