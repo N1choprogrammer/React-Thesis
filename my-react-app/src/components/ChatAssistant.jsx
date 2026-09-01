@@ -308,6 +308,51 @@ function getOrderIntent(message) {
     msg.includes("place order")
   )
 }
+
+function requiresHumanSupport(message) {
+  const msg = normalizeText(message)
+
+  if (!msg) return false
+
+  const supportSignals = [
+    "talk to a live person",
+    "talk to a human",
+    "talk to the manager",
+    "speak to a manager",
+    "speak to an admin",
+    "speak to a person",
+    "need a human",
+    "need an agent",
+    "contact admin",
+    "contact manager",
+    "contact support",
+    "live chat with admin",
+    "live chat with manager",
+    "live agent",
+    "customer support",
+    "human support",
+    "real person",
+    "real agent",
+    "can i talk to someone",
+    "i need to speak to someone",
+    "i need a human",
+    "i need help from a person",
+    "cant answer",
+    "cannot answer",
+    "not sure",
+    "not able to answer",
+    "unable to answer",
+    "i need help from admin",
+    "please connect me to an admin",
+    "please connect me to a person",
+    "please connect me to support",
+    "chat with admin",
+    "chat with manager",
+  ]
+
+  return supportSignals.some((signal) => msg.includes(signal))
+}
+
 function isCartConfirmation(message) {
   const msg = normalizeText(message)
   return (
@@ -1473,6 +1518,7 @@ What's most important to you?`,
           {
             from: "bot",
             text: "A live admin is already responding in this chat. Please wait for their next message here.\nFor direct contact, call 0919-949-1986 or email ianneclauren969@gmail.com.",
+            actions: [{ label: "Live chat with admin", onClick: () => startLiveChatWithAdmin(initialPrompt) }],
           },
         ])
         return
@@ -1499,6 +1545,7 @@ What's most important to you?`,
           {
             from: "bot",
             text: "I couldn't connect you to a live agent right now. Please call 0919-949-1986 or email ianneclauren969@gmail.com for direct support.",
+            actions: [{ label: "Live chat with admin", onClick: () => startLiveChatWithAdmin(initialPrompt) }],
           },
         ])
         return
@@ -1526,7 +1573,7 @@ What's most important to you?`,
         ...prev,
         {
           from: "bot",
-          text: "I’m connecting you to a live admin now. A team member will answer in this chat window, and the response will appear below.\nFor direct contact, call 0919-949-1986 or email ianneclauren969@gmail.com.",
+          text: "I can’t answer that accurately yet. Please use live chat with our admin or contact us directly:\nPhone: 0919-949-1986\nEmail: ianneclauren969@gmail.com",
           actions: [{ label: "Live chat with admin", onClick: () => startLiveChatWithAdmin(initialPrompt) }],
         },
       ])
@@ -3161,9 +3208,10 @@ Would you like to add it to your cart?`,
           ? { from: "bot", text: botReply }
           : { from: "bot", ...(botReply || {}) }
 
-      const shouldEscalateToAdmin = !normalizedBotReply.text ||
-        /i can help with that|i'm not sure|i'm not able to answer|let me connect you to a live agent|please contact|call us|email us|live chat/i.test(
-          String(normalizedBotReply.text)
+      const shouldEscalateToAdmin =
+        requiresHumanSupport(userMsg) ||
+        /\b(cannot answer|can't answer|unable to answer|not able to answer|not sure|dont know|don't know|need a person|need a human|need an agent|live agent|agent|representative)\b/i.test(
+          String(normalizedBotReply.text || "")
         )
 
       if (shouldEscalateToAdmin) {
