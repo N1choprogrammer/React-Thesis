@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { supabase } from "../../services/supabaseClient"
 
-export default function AdminMessages() {
+export default function AdminMessages({ onLiveChatCountChange }) {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("inbox")
@@ -79,6 +79,16 @@ export default function AdminMessages() {
   }, [])
 
   useEffect(() => {
+    if (typeof onLiveChatCountChange === "function") {
+      const unreadCount = chatThreads.filter((thread) =>
+        ["open", "waiting_admin"].includes(thread.status || "open"),
+      ).length
+
+      onLiveChatCountChange(unreadCount)
+    }
+  }, [chatThreads, onLiveChatCountChange])
+
+  useEffect(() => {
     if (!selectedThreadId) {
       setChatMessages([])
       return
@@ -147,7 +157,7 @@ export default function AdminMessages() {
         .from("admin_chat_threads")
         .update({
           updated_at: new Date().toISOString(),
-          status: "open",
+          status: "waiting_customer",
         })
         .eq("id", selectedThreadId)
 

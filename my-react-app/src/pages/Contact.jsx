@@ -19,6 +19,15 @@ export default function Contact() {
   })
   const [liveChatSent, setLiveChatSent] = useState(false)
   const [liveChatError, setLiveChatError] = useState("")
+  const [liveChatThread, setLiveChatThread] = useState(null)
+  const [threadStatus, setThreadStatus] = useState("idle")
+
+  const statusText = {
+    idle: "No active live chat thread yet.",
+    waiting_admin: "Your message is waiting for an admin reply.",
+    waiting_customer: "The admin replied. Please check for the latest update and respond if needed.",
+    closed: "This live chat has been closed.",
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -51,6 +60,63 @@ export default function Contact() {
     setSubmitted(true)
   }
 
+  useEffect(() => {
+    const savedThreadId = localStorage.getItem("speego_live_chat_thread_id")
+    if (!savedThreadId) return
+
+    const fetchSavedThread = async () => {
+      const { data, error } = await supabase
+        .from("admin_chat_threads")
+        .select("*")
+        .eq("id", savedThreadId)
+        .maybeSingle()
+
+      if (!error && data) {
+        setLiveChatThread(data)
+        setThreadStatus(data.status || "waiting_admin")
+        setLiveChatSent(true)
+      }
+    }
+
+    fetchSavedThread()
+  }, [])
+
+  useEffect(() => {
+    if (!liveChatThread?.id) return undefined
+
+    const channel = supabase.channel(`customer-thread-${liveChatThread.id}`)
+
+    channel.on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "admin_chat_threads", filter: `id=eq.${liveChatThread.id}` },
+      (payload) => {
+        const nextThread = payload.new
+        setLiveChatThread(nextThread)
+        setThreadStatus(nextThread.status || "waiting_admin")
+      },
+    )
+
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "admin_chat_messages", filter: `thread_id=eq.${liveChatThread.id}` },
+      async () => {
+        const { data } = await supabase
+          .from("admin_chat_threads")
+          .select("*")
+          .eq("id", liveChatThread.id)
+          .maybeSingle()
+
+        if (data) {
+          setLiveChatThread(data)
+          setThreadStatus(data.status || "waiting_admin")
+        }
+      },
+    )
+
+    const subscription = channel.subscribe()
+    return () => subscription?.unsubscribe?.()
+  }, [liveChatThread?.id])
+
   const handleLiveChatSubmit = async (e) => {
     e.preventDefault()
     setLiveChatError("")
@@ -64,7 +130,7 @@ export default function Contact() {
       customer_name: liveChatForm.name,
       phone: liveChatForm.phone,
       email: liveChatForm.email || null,
-      status: "open",
+      status: "waiting_admin",
       updated_at: new Date().toISOString(),
     }
 
@@ -97,6 +163,9 @@ export default function Contact() {
       return
     }
 
+    localStorage.setItem("speego_live_chat_thread_id", thread.id)
+    setLiveChatThread(thread)
+    setThreadStatus("waiting_admin")
     setLiveChatSent(true)
     setLiveChatForm({ name: "", phone: "", email: "", message: "" })
   }
@@ -300,7 +369,7 @@ export default function Contact() {
                   "mt-4 rounded-xl border p-3 text-sm",
                   isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100" : "border-emerald-300 bg-emerald-50 text-emerald-800",
                 ].join(" ")}>
-                  Your live chat request has been sent to the admin team. We will respond as soon as we are online.
+                  {statusText[threadStatus] || statusText.waiting_admin}
                 </div>
               ) : (
                 <form onSubmit={handleLiveChatSubmit} className="mt-4 space-y-3">

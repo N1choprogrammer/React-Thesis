@@ -36,6 +36,7 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const [newOrderNotice, setNewOrderNotice] = useState(null)
   const [unseenNewOrderCount, setUnseenNewOrderCount] = useState(0)
+  const [unreadLiveChatCount, setUnreadLiveChatCount] = useState(0)
 
   const markOrdersAsSeen = async () => {
     const {
@@ -135,7 +136,7 @@ export default function AdminLayout() {
             >
               Notifications
             </AdminNavLink>
-            <AdminNavLink to="/admin/messages">Messages</AdminNavLink>
+            <AdminNavLink to="/admin/messages" badgeCount={unreadLiveChatCount}>Messages</AdminNavLink>
           </nav>
 
           <div className="mt-5 border-t border-white/10 pt-5">
@@ -188,7 +189,10 @@ export default function AdminLayout() {
             <Route path="products/:id/edit" element={<AdminProductForm mode="edit" />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="notifications" element={<AdminNotifications />} />
-            <Route path="messages" element={<AdminMessages />} />
+            <Route
+              path="messages"
+              element={<AdminMessages onLiveChatCountChange={setUnreadLiveChatCount} />}
+            />
             <Route path="*" element={<AdminDashboard />} />
           </Routes>
         </section>
