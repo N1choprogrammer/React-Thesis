@@ -171,6 +171,25 @@ export default function AdminMessages({ onLiveChatCountChange }) {
     setChatSending(false)
   }
 
+  const deleteChatMessage = async (messageId) => {
+    if (!messageId) return
+
+    const { error } = await supabase
+      .from("admin_chat_messages")
+      .delete()
+      .eq("id", messageId)
+
+    if (error) {
+      console.error("Error deleting admin chat message:", error)
+      return
+    }
+
+    if (selectedThreadId) {
+      await loadThreadMessages(selectedThreadId)
+      await loadChatThreads()
+    }
+  }
+
   const formatDateTime = (iso) => {
     if (!iso) return ""
     const d = new Date(iso)
@@ -311,12 +330,20 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                       <div
                         key={msg.id}
                         className={[
-                          "max-w-[85%] rounded-2xl border px-3 py-2 text-sm leading-6",
+                          "group relative max-w-[85%] rounded-2xl border px-3 py-2 text-sm leading-6",
                           msg.sender === "admin"
                             ? "ml-auto border-red-400/30 bg-red-500/10 text-red-50"
                             : "border-white/10 bg-white/5 text-zinc-100",
                         ].join(" ")}
                       >
+                        <button
+                          type="button"
+                          onClick={() => deleteChatMessage(msg.id)}
+                          className="absolute -right-2 -top-2 hidden rounded-full border border-red-400/40 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-red-200 transition hover:bg-red-500/10 group-hover:inline-flex"
+                          aria-label="Delete message"
+                        >
+                          Delete
+                        </button>
                         <div className="mb-1 text-[10px] uppercase tracking-[0.12em] text-zinc-400">
                           {msg.sender === "admin" ? "Admin" : msg.sender_name || "Customer"}
                         </div>
