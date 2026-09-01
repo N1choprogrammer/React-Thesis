@@ -310,9 +310,9 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                       className={[
                         "relative w-full rounded-xl border p-3 text-left transition",
                         isWaitingReply
-                          ? "border-red-400/40 bg-red-500/10 shadow-[0_0_0_1px_rgba(248,113,113,0.12)]"
-                          : "border-white/10 bg-white/5 hover:bg-white/10",
-                        selectedThreadId === thread.id ? "ring-1 ring-red-400/50" : "",
+                          ? "border-red-500/40 bg-[#2a1718] shadow-[0_0_0_1px_rgba(248,113,113,0.12)]"
+                          : "border-white/10 bg-[#17181d] hover:bg-[#1d1f26]",
+                        selectedThreadId === thread.id ? "ring-1 ring-red-400/60" : "",
                       ].join(" ")}
                     >
                       <button
@@ -324,16 +324,16 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                           <span className="font-semibold text-white">{thread.customer_name || "Customer"}</span>
                           <span
                             className={[
-                              "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em]",
+                              "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] font-semibold",
                               isWaitingReply
-                                ? "border-red-300/30 bg-red-500/20 text-red-100"
-                                : "border-emerald-300/30 bg-emerald-500/20 text-emerald-200",
+                                ? "border-red-400/30 bg-red-500/15 text-red-100"
+                                : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
                             ].join(" ")}
                           >
                             {thread.status || "waiting_admin"}
                           </span>
                         </div>
-                        <p className="mt-2 text-xs text-zinc-400">{thread.phone || "No phone"}</p>
+                        <p className="mt-2 text-xs text-zinc-300">{thread.phone || "No phone"}</p>
                         <p className="mt-1 text-xs text-zinc-400">{formatDateTime(thread.updated_at)}</p>
                       </button>
 
@@ -343,7 +343,7 @@ export default function AdminMessages({ onLiveChatCountChange }) {
                           event.stopPropagation()
                           void deleteChatThread(thread.id)
                         }}
-                        className="absolute right-2 top-2 rounded-full border border-red-400/30 bg-zinc-900/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-red-200 transition hover:bg-red-500/10"
+                        className="absolute right-2 top-2 rounded-full border border-red-400/30 bg-[#2b1215] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-red-100 transition hover:bg-red-500/10"
                         aria-label="Delete thread"
                       >
                         Delete
