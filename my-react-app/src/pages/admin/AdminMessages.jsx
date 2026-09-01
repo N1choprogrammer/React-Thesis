@@ -4,7 +4,7 @@ import { supabase } from "../../services/supabaseClient"
 export default function AdminMessages({ onLiveChatCountChange }) {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("inbox")
+  const [activeTab, setActiveTab] = useState("live-chat")
   const [chatThreads, setChatThreads] = useState([])
   const [chatThreadsLoading, setChatThreadsLoading] = useState(true)
   const [selectedThreadId, setSelectedThreadId] = useState("")
@@ -193,24 +193,16 @@ export default function AdminMessages({ onLiveChatCountChange }) {
 
       <div className="rounded-2xl border border-white/10 bg-zinc-950/85 p-2 shadow-[0_12px_32px_rgba(0,0,0,0.25)]">
         <div className="flex flex-wrap gap-2">
-          {[
-            { value: "inbox", label: "Inbox" },
-            { value: "live-chat", label: "Live chat" },
-          ].map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setActiveTab(tab.value)}
-              className={[
-                "rounded-xl border px-4 py-2 text-sm font-semibold transition",
-                activeTab === tab.value
-                  ? "border-red-400/40 bg-red-500/10 text-red-100"
-                  : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
-              ].join(" ")}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setActiveTab("live-chat")}
+            className={[
+              "rounded-xl border px-4 py-2 text-sm font-semibold transition",
+              "border-red-400/40 bg-red-500/10 text-red-100",
+            ].join(" ")}
+          >
+            Live chat
+          </button>
         </div>
       </div>
 

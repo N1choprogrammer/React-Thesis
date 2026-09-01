@@ -1285,6 +1285,9 @@ What's most important to you?`,
     },
   ])
     const [sending, setSending] = useState(false)
+    const [liveChatThreadId, setLiveChatThreadId] = useState("")
+    const [liveChatMessages, setLiveChatMessages] = useState([])
+    const [liveChatStatus, setLiveChatStatus] = useState("idle")
     const [catalogProducts, setCatalogProducts] = useState([])
     const [typingFrame, setTypingFrame] = useState(0)
     const [lastProductContextId, setLastProductContextId] = useState(null)
@@ -1397,6 +1400,137 @@ What's most important to you?`,
 
       return () => clearInterval(intervalId)
     }, [sending])
+
+    const loadLiveChatMessages = async (threadId) => {
+      if (!threadId) {
+        setLiveChatMessages([])
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("admin_chat_messages")
+        .select("*")
+        .eq("thread_id", threadId)
+        .order("created_at", { ascending: true })
+
+      if (error) {
+        console.error("Error loading live chat messages in AI assistant:", error)
+        setLiveChatMessages([])
+        return
+      }
+
+      setLiveChatMessages(data || [])
+    }
+
+    useEffect(() => {
+      const savedThreadId = localStorage.getItem("speego_ai_live_chat_thread_id")
+      if (!savedThreadId) return
+
+      setLiveChatThreadId(savedThreadId)
+      loadLiveChatMessages(savedThreadId)
+    }, [])
+
+    useEffect(() => {
+      if (!liveChatThreadId) return undefined
+
+      const channel = supabase.channel(`speego-ai-live-chat-${liveChatThreadId}`)
+
+      channel.on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "admin_chat_messages", filter: `thread_id=eq.${liveChatThreadId}` },
+        async () => {
+          await loadLiveChatMessages(liveChatThreadId)
+
+          const { data } = await supabase
+            .from("admin_chat_threads")
+            .select("*")
+            .eq("id", liveChatThreadId)
+            .maybeSingle()
+
+          if (data) {
+            setLiveChatStatus(data.status || "waiting_admin")
+          }
+        },
+      )
+
+      channel.on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "admin_chat_threads", filter: `id=eq.${liveChatThreadId}` },
+        (payload) => {
+          const nextThread = payload.new
+          setLiveChatStatus(nextThread?.status || "waiting_admin")
+        },
+      )
+
+      const subscription = channel.subscribe()
+      return () => subscription?.unsubscribe?.()
+    }, [liveChatThreadId])
+
+    const startLiveChatWithAdmin = async (initialPrompt = "Customer requested live support from SpeeGo AI.") => {
+      if (liveChatThreadId) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            from: "bot",
+            text: "A live admin is already responding in this chat. Please wait for their next message here.\nFor direct contact, call 0919-949-1986 or email ianneclauren969@gmail.com.",
+          },
+        ])
+        return
+      }
+
+      const { data: thread, error: threadError } = await supabase
+        .from("admin_chat_threads")
+        .insert([
+          {
+            customer_name: "Customer",
+            phone: "Not provided",
+            email: null,
+            status: "waiting_admin",
+            updated_at: new Date().toISOString(),
+          },
+        ])
+        .select()
+        .single()
+
+      if (threadError || !thread) {
+        console.error("Error creating AI handoff thread:", threadError)
+        setMessages((prev) => [
+          ...prev,
+          {
+            from: "bot",
+            text: "I couldn't connect you to a live agent right now. Please call 0919-949-1986 or email ianneclauren969@gmail.com for direct support.",
+          },
+        ])
+        return
+      }
+
+      const { error: messageError } = await supabase.from("admin_chat_messages").insert([
+        {
+          thread_id: thread.id,
+          sender: "customer",
+          sender_name: "Customer",
+          content: initialPrompt,
+        },
+      ])
+
+      if (messageError) {
+        console.error("Error creating initial AI handoff message:", messageError)
+      }
+
+      setLiveChatThreadId(thread.id)
+      setLiveChatStatus("waiting_admin")
+      localStorage.setItem("speego_ai_live_chat_thread_id", thread.id)
+      await loadLiveChatMessages(thread.id)
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          from: "bot",
+          text: "I’m connecting you to a live admin now. A team member will answer in this chat window, and the response will appear below.\nFor direct contact, call 0919-949-1986 or email ianneclauren969@gmail.com.",
+          actions: [{ label: "Live chat with admin", onClick: () => startLiveChatWithAdmin(initialPrompt) }],
+        },
+      ])
+    }
 
     const handleToggle = () => {
       setOpen((prev) => !prev)
@@ -3022,14 +3156,25 @@ Would you like to add it to your cart?`,
         botReply = getSpeegoBotReply(userMsg, intents)
       }
 
-      const thinkingDelayMs = 1600 + Math.floor(Math.random() * 1600)
-      await new Promise((resolve) => setTimeout(resolve, thinkingDelayMs))
-
       const normalizedBotReply =
         typeof botReply === "string"
           ? { from: "bot", text: botReply }
           : { from: "bot", ...(botReply || {}) }
 
+      const shouldEscalateToAdmin = !normalizedBotReply.text ||
+        /i can help with that|i'm not sure|i'm not able to answer|let me connect you to a live agent|please contact|call us|email us|live chat/i.test(
+          String(normalizedBotReply.text)
+        )
+
+      if (shouldEscalateToAdmin) {
+        const liveChatPrompt = userMsg || "Customer requested live support from SpeeGo AI."
+        await startLiveChatWithAdmin(liveChatPrompt)
+        setSending(false)
+        return
+      }
+
+      const thinkingDelayMs = 1600 + Math.floor(Math.random() * 1600)
+      await new Promise((resolve) => setTimeout(resolve, thinkingDelayMs))
       setMessages((prev) => [...prev, normalizedBotReply])
       setSending(false)
     } catch (err) {
@@ -3223,6 +3368,47 @@ Would you like to add it to your cart?`,
                 </div>
               )
             })}
+
+            {liveChatThreadId && (
+              <div className="chat-message chat-message-bot">
+                <div className="chat-message-bubble" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <strong style={{ fontSize: "12px", letterSpacing: "0.12em", textTransform: "uppercase", opacity: 0.75 }}>
+                    Live chat with admin
+                  </strong>
+                  {liveChatMessages.length === 0 ? (
+                    <span style={{ whiteSpace: "pre-wrap" }}>The admin hasn’t replied yet. We’ll send the next update here.</span>
+                  ) : (
+                    liveChatMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: msg.sender === "customer" ? "flex-end" : "flex-start",
+                        }}
+                      >
+                        <div
+                          style={{
+                            maxWidth: "85%",
+                            background: msg.sender === "customer" ? "rgba(239, 68, 68, 0.14)" : "rgba(255,255,255,0.06)",
+                            border: msg.sender === "customer" ? "1px solid rgba(248,113,113,0.35)" : "1px solid rgba(255,255,255,0.1)",
+                            borderRadius: "0.9rem",
+                            padding: "0.5rem 0.7rem",
+                          }}
+                        >
+                          <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.75 }}>
+                            {msg.sender === "customer" ? "You" : "Admin"}
+                          </div>
+                          <div style={{ whiteSpace: "pre-wrap", marginTop: "0.2rem" }}>{msg.content}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <div style={{ fontSize: "11px", opacity: 0.75 }}>
+                    Status: {liveChatStatus === "waiting_admin" ? "Waiting for admin reply" : liveChatStatus}
+                  </div>
+                </div>
+              </div>
+            )}
             {sending && (
               <div className="chat-message chat-message-bot">
                 <div className="chat-message-bubble chat-typing">
@@ -3230,6 +3416,27 @@ Would you like to add it to your cart?`,
                 </div>
               </div>
             )}
+          </div>
+
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={() => startLiveChatWithAdmin("Customer requested live support from SpeeGo AI.")}
+              disabled={sending}
+              style={{
+                width: "100%",
+                border: "1px solid rgba(248,113,113,0.45)",
+                background: "rgba(239,68,68,0.12)",
+                color: "var(--chat-chip-text)",
+                borderRadius: "999px",
+                padding: "0.6rem 0.8rem",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: sending ? "not-allowed" : "pointer",
+              }}
+            >
+              Live chat with admin
+            </button>
           </div>
 
           <form className="chat-assistant-input-row" onSubmit={handleSubmit}>
