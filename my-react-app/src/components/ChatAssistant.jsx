@@ -3258,10 +3258,6 @@ Would you like to add it to your cart?`,
       return label && !text.includes(label)
     })
 
-    if (msg?.from !== "bot" || (links.length === 0 && actions.length === 0)) {
-      return <span style={{ whiteSpace: "pre-wrap" }}>{text}</span>
-    }
-
     const renderStandaloneLinks = () =>
       standaloneLinks.length > 0 ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
@@ -3281,6 +3277,31 @@ Would you like to add it to your cart?`,
               }}
             >
               {link.label}
+            </button>
+          ))}
+        </div>
+      ) : null
+
+    const renderActionButtons = () =>
+      actions.length > 0 ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+          {actions.map((action) => (
+            <button
+              key={action?.label || "chat-action"}
+              type="button"
+              onClick={() => action?.onClick?.()}
+              disabled={sending}
+              style={{
+                border: "1px solid var(--chat-chip-border)",
+                background: "var(--chat-chip-bg)",
+                color: "var(--chat-chip-text)",
+                borderRadius: "999px",
+                padding: "0.38rem 0.7rem",
+                fontSize: "12px",
+                cursor: "pointer",
+              }}
+            >
+              {action?.label || "Continue"}
             </button>
           ))}
         </div>
@@ -3323,68 +3344,15 @@ Would you like to add it to your cart?`,
       cursor = index + label.length
     }
 
-    if (parts.length === 0) {
-      return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-          <span style={{ whiteSpace: "pre-wrap" }}>{text}</span>
-          {renderStandaloneLinks()}
-          {actions.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
-              {actions.map((action) => (
-                <button
-                  key={action?.label || "chat-action"}
-                  type="button"
-                  onClick={() => action?.onClick?.()}
-                  disabled={sending}
-                  style={{
-                    border: "1px solid var(--chat-chip-border)",
-                    background: "var(--chat-chip-bg)",
-                    color: "var(--chat-chip-text)",
-                    borderRadius: "999px",
-                    padding: "0.38rem 0.7rem",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                  }}
-                >
-                  {action?.label || "Continue"}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )
-    }
     if (cursor < text.length) {
       parts.push(text.slice(cursor))
     }
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-        <span style={{ whiteSpace: "pre-wrap" }}>{parts}</span>
+        {parts.length > 0 ? <span style={{ whiteSpace: "pre-wrap" }}>{parts}</span> : <span style={{ whiteSpace: "pre-wrap" }}>{text}</span>}
         {renderStandaloneLinks()}
-        {actions.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
-            {actions.map((action) => (
-              <button
-                key={action?.label || "chat-action"}
-                type="button"
-                onClick={() => action?.onClick?.()}
-                disabled={sending}
-                style={{
-                  border: "1px solid var(--chat-chip-border)",
-                  background: "var(--chat-chip-bg)",
-                  color: "var(--chat-chip-text)",
-                  borderRadius: "999px",
-                  padding: "0.38rem 0.7rem",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                }}
-              >
-                {action?.label || "Continue"}
-              </button>
-            ))}
-          </div>
-        )}
+        {renderActionButtons()}
       </div>
     )
   }
