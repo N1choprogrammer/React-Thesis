@@ -228,6 +228,8 @@ export default function Cart() {
     setOrderError(null)
     setOrderSuccessId(null)
 
+    let releaseReservation = null
+
     try {
       const gate = await requireCustomerProfile()
       if (!gate.ok) {
@@ -338,6 +340,36 @@ export default function Cart() {
               : `${paymentPlanNote} Customer selected GCash down payment. Minimum required: ${peso(minimumDownPayment)}.`,
       }
 
+      const reservationItems = cart.map((item) => ({
+        product_id: item.productId ?? item.product_id,
+        variant_id: item.variantId ?? null,
+        color: item.color || null,
+        quantity: item.quantity || 1,
+      }))
+      const { error: reservationError } = await supabase.rpc("reserve_stock_for_order", {
+        items: reservationItems,
+      })
+
+      if (reservationError) {
+        const message = String(reservationError.message || "").toLowerCase()
+        setOrderError(
+          message.includes("no longer available") || message.includes("requested quantity")
+            ? "Sorry, another customer completed this purchase first. The item is no longer available in the requested quantity."
+            : reservationError.message || "We could not reserve the stock. Please try again."
+        )
+        return
+      }
+
+      let stockReserved = true
+      releaseReservation = async () => {
+        if (!stockReserved) return
+        const { error: releaseError } = await supabase.rpc("release_stock_reservation", {
+          items: reservationItems,
+        })
+        if (releaseError) console.error("Stock release error:", releaseError)
+        stockReserved = false
+      }
+
       let { data: orderData, error: orderErr } = await supabase
         .from("orders")
         .insert(orderPayload)
@@ -389,6 +421,7 @@ export default function Cart() {
       }
 
       if (orderErr) {
+        await releaseReservation()
         console.log("ORDER INSERT ERROR:", orderErr)
         setOrderError(orderErr.message || "Failed to create order.")
         return
@@ -418,18 +451,13 @@ export default function Cart() {
       }
 
       if (itemsErr) {
+        await releaseReservation()
         console.log("ITEMS INSERT ERROR:", itemsErr)
         setOrderError(itemsErr.message || "Order created but items failed.")
         return
       }
 
-      const { error: stockErr } = await supabase.rpc("decrease_stock_for_order", {
-        order_uuid: orderData.id,
-      })
-
-      if (stockErr) {
-        console.error("Stock update error:", stockErr)
-      }
+      stockReserved = false
 
       // Notify admin emails about a newly created order (best-effort).
       const {
@@ -462,6 +490,7 @@ export default function Cart() {
         state: { order: orderData },
       })
     } catch (err) {
+      if (releaseReservation) await releaseReservation()
       console.error("Unexpected checkout error:", err)
       setOrderError(err?.message || "Something went wrong.")
     } finally {

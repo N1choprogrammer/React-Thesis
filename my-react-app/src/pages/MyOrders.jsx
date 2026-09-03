@@ -128,6 +128,7 @@ export default function MyOrders() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState(null)
   const [expandedOrderId, setExpandedOrderId] = useState(null)
+  const [cancellingOrderId, setCancellingOrderId] = useState(null)
 
   const navigate = useNavigate()
 
@@ -201,6 +202,47 @@ export default function MyOrders() {
 
   const handleToggleExpand = (orderId) => {
     setExpandedOrderId((current) => (current === orderId ? null : orderId))
+  }
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm("Cancel this order? This action cannot be undone.")) return
+
+    setCancellingOrderId(orderId)
+    setErrorMsg(null)
+
+    const { data: cancelledOrder, error: cancelError } = await supabase
+      .from("orders")
+      .update({ status: "cancelled" })
+      .eq("id", orderId)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle()
+
+    if (cancelError || !cancelledOrder) {
+      console.error("Error cancelling order:", cancelError)
+      setErrorMsg(
+        cancelError?.message ||
+          "This order can no longer be cancelled. It may already be processing."
+      )
+      setCancellingOrderId(null)
+      return
+    }
+
+    const { error: stockError } = await supabase.rpc("increase_stock_for_order", {
+      order_uuid: orderId,
+    })
+
+    if (stockError) {
+      console.error("Error restoring stock after customer cancellation:", stockError)
+      setErrorMsg("Your order was cancelled, but stock restoration needs staff attention.")
+    }
+
+    setOrders((currentOrders) =>
+      currentOrders.map((order) =>
+        order.id === orderId ? { ...order, status: "cancelled" } : order
+      )
+    )
+    setCancellingOrderId(null)
   }
 
   const getStatusLabel = (status) => {
@@ -305,18 +347,30 @@ export default function MyOrders() {
                       </div>
 
                       <div className="lg:justify-self-end">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleExpand(order.id)}
-                          className={[
-                            "w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition lg:w-auto",
-                            isDark
-                              ? "border border-white/10 bg-white/5 text-zinc-100 hover:bg-white/10"
-                              : "border border-black/10 bg-white text-zinc-800 hover:bg-zinc-50",
-                          ].join(" ")}
-                        >
-                          {isExpanded ? "Hide details" : "View details"}
-                        </button>
+                        <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleExpand(order.id)}
+                            className={[
+                              "w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition lg:w-auto",
+                              isDark
+                                ? "border border-white/10 bg-white/5 text-zinc-100 hover:bg-white/10"
+                                : "border border-black/10 bg-white text-zinc-800 hover:bg-zinc-50",
+                            ].join(" ")}
+                          >
+                            {isExpanded ? "Hide details" : "View details"}
+                          </button>
+                          {status === "pending" && (
+                            <button
+                              type="button"
+                              disabled={cancellingOrderId === order.id}
+                              onClick={() => handleCancelOrder(order.id)}
+                              className="w-full rounded-xl border border-red-400/40 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60 lg:w-auto"
+                            >
+                              {cancellingOrderId === order.id ? "Cancelling..." : "Cancel my order"}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
